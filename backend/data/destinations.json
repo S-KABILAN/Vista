@@ -1,0 +1,190 @@
+{
+  "destinations": [
+    {
+      "id": "1",
+      "name": "Paris",
+      "country": "France",
+      "description": "Paris, France's capital, is a major European city and a global center for art, fashion, gastronomy and culture."
+    },
+    {
+      "id": "2",
+      "name": "New York",
+      "country": "United States",
+      "description": "New York City comprises 5 boroughs sitting where the Hudson River meets the Atlantic Ocean."
+    },
+    {
+      "id": "3",
+      "name": "Tokyo",
+      "country": "Japan",
+      "description": "Tokyo, Japan's busy capital, mixes the ultramodern and the traditional, from neon-lit skyscrapers to historic temples."
+    },
+    {
+      "id": "4",
+      "name": "London",
+      "country": "United Kingdom",
+      "description": "London, the capital of England and the United Kingdom, is a 21st-century city with history stretching back to Roman times."
+    },
+    {
+      "id": "5",
+      "name": "Rome",
+      "country": "Italy",
+      "description": "Rome, Italy's capital, is a sprawling, cosmopolitan city with nearly 3,000 years of globally influential art, architecture and culture on display."
+    },
+    {
+      "id": "6",
+      "name": "Sydney",
+      "country": "Australia",
+      "description": "Sydney, capital of New South Wales and one of Australia's largest cities, is best known for its harbourfront Sydney Opera House."
+    },
+    {
+      "id": "7",
+      "name": "Dubai",
+      "country": "United Arab Emirates",
+      "description": "Dubai is a city and emirate in the United Arab Emirates known for luxury shopping, ultramodern architecture and a lively nightlife scene."
+    },
+    {
+      "id": "8",
+      "name": "Bangkok",
+      "country": "Thailand",
+      "description": "Bangkok, Thailand's capital, is a large city known for ornate shrines and vibrant street life."
+    },
+    {
+      "id": "9",
+      "name": "Singapore",
+      "country": "Singapore",
+      "description": "Singapore is a sunny, tropical island in Southeast Asia, off the southern tip of the Malay Peninsula."
+    },
+    {
+      "id": "10",
+      "name": "Barcelona",
+      "country": "Spain",
+      "description": "Barcelona, the cosmopolitan capital of Spain's Catalonia region, is known for its art and architecture."
+    },
+    {
+      "id": "11",
+      "name": "Istanbul",
+      "country": "Turkey",
+      "description": "Istanbul is a major city in Turkey that straddles Europe and Asia across the Bosphorus Strait."
+    },
+    {
+      "id": "12",
+      "name": "Hong Kong",
+      "country": "China",
+      "description": "Hong Kong is an autonomous territory, and former British colony, in southeastern China."
+    },
+    {
+      "id": "13",
+      "name": "Mumbai",
+      "country": "India",
+      "description": "Mumbai (formerly called Bombay) is a densely populated city on India's west coast."
+    },
+    {
+      "id": "14",
+      "name": "Rio de Janeiro",
+      "country": "Brazil",
+      "description": "Rio de Janeiro is a huge seaside city in Brazil, famed for its Copacabana and Ipanema beaches, Cristo Redentor statue, and Sugarloaf Mountain."
+    },
+    {
+      "id": "15",
+      "name": "Cape Town",
+      "country": "South Africa",
+      "description": "Cape Town is a port city on South Africa's southwest coast, on a peninsula beneath the imposing Table Mountain."
+    },
+    {
+      "id": "16",
+      "name": "Amsterdam",
+      "country": "Netherlands",
+      "description": "Amsterdam is the Netherlands' capital, known for its artistic heritage, elaborate canal system and narrow houses."
+    },
+    {
+      "id": "17",
+      "name": "Berlin",
+      "country": "Germany",
+      "description": "Berlin, Germany's capital, dates to the 13th century. Reminders of the city's turbulent 20th-century history include its Holocaust memorial."
+    },
+    {
+      "id": "18",
+      "name": "Prague",
+      "country": "Czech Republic",
+      "description": "Prague, capital city of the Czech Republic, is bisected by the Vltava River."
+    },
+    {
+      "id": "19",
+      "name": "Seoul",
+      "country": "South Korea",
+      "description": "Seoul, the capital of South Korea, is a huge metropolis where modern skyscrapers, high-tech subways and pop culture meet Buddhist temples."
+    },
+    {
+      "id": "20",
+      "name": "Vienna",
+      "country": "Austria",
+      "description": "Vienna, Austria's capital, lies in the country's east on the Danube River."
+    },
+    {
+      "id": "21",
+      "name": "Marrakesh",
+      "country": "Morocco",
+      "description": "Marrakesh, a former imperial city in western Morocco, is a major economic center and home to mosques, palaces and gardens."
+    },
+    {
+      "id": "22",
+      "name": "Bali",
+      "country": "Indonesia",
+      "description": "Bali is an Indonesian island known for its forested volcanic mountains, iconic rice paddies, beaches and coral reefs."
+    },
+    {
+      "id": "23",
+      "name": "Venice",
+      "country": "Italy",
+      "description": "Venice, the capital of northern Italy's Veneto region, is built on more than 100 small islands in a lagoon in the Adriatic Sea."
+    },
+    {
+      "id": "24",
+      "name": "San Francisco",
+      "country": "United States",
+      "description": "San Francisco, in northern California, is a hilly city on the tip of a peninsula surrounded by the Pacific Ocean and San Francisco Bay."
+    },
+    {
+      "id": "25",
+      "name": "Los Angeles",
+      "country": "United States",
+      "description": "Los Angeles is a sprawling Southern California city and the center of the nation's film and television industry."
+    },
+    {
+      "id": "26",
+      "name": "Chennai",
+      "country": "India",
+      "description": "Chennai, on the Bay of Bengal in eastern India, is the capital of the state of Tamil Nadu."
+    },
+    {
+      "id": "27",
+      "name": "Delhi",
+      "country": "India",
+      "description": "Delhi, India's capital territory, is a massive metropolitan area in the country's north."
+    },
+    {
+      "id": "28",
+      "name": "Goa",
+      "country": "India",
+      "description": "Goa is a state in western India with coastlines stretching along the Arabian Sea."
+    },
+    {
+      "id": "29",
+      "name": "Kolkata",
+      "country": "India",
+      "description": "Kolkata (formerly Calcutta) is the capital of India's West Bengal state."
+    },
+    {
+      "id": "30",
+      "name": "Jaipur",
+      "country": "India",
+      "description": "Jaipur is the capital of India's Rajasthan state. It evokes the royal family that once ruled the region."
+    },
+    {
+      "id": "31",
+      "name": "Agra",
+      "country": "India",
+      "description": "Agra is a city on the banks of the Yamuna river in the Indian state of Uttar Pradesh, famous for the Taj Mahal."
+    }
+  ]
+}
