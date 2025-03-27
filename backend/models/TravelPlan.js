@@ -5,6 +5,7 @@ const TravelPlanSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
     required: true,
+    index: true,
   },
   destination: {
     type: String,
@@ -18,12 +19,6 @@ const TravelPlanSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
-  startDate: {
-    type: Date,
-  },
-  endDate: {
-    type: Date,
-  },
   itinerary: [
     {
       day: Number,
@@ -33,11 +28,9 @@ const TravelPlanSchema = new mongoose.Schema({
   recommendations: [
     {
       name: String,
-      description: String,
       category: String,
+      description: String,
       estimatedCost: Number,
-      rating: Number,
-      address: String,
     },
   ],
   budgetBreakdown: {
@@ -57,4 +50,6 @@ const TravelPlanSchema = new mongoose.Schema({
   },
 });
 
+TravelPlanSchema.index({ createdAt: -1 });
+TravelPlanSchema.index({ isBookmarked: 1 });
 module.exports = mongoose.model("TravelPlan", TravelPlanSchema);

@@ -12,6 +12,7 @@ import {
   FlatList,
   ImageBackground,
   StatusBar,
+  ActivityIndicator,
 } from "react-native";
 import { firebase_auth } from "../FirebaseAuth";
 import Tabbar from "../components/Tabbar";
@@ -36,6 +37,7 @@ import {
   FontAwesome5,
 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { weatherapi } from "../constants/constant";
 
 const { height, width } = Dimensions.get("window");
 const cardWidth = width * 0.7;
@@ -50,134 +52,49 @@ const Home = ({ route }) => {
   const [recentViews, setRecentViews] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
   const [currentWeather, setCurrentWeather] = useState(null);
-  const [currentLocation, setCurrentLocation] = useState("New York");
+  const [currentLocation, setCurrentLocation] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (route.params?.selectedLocation) {
-      const location = route.params.selectedLocation;
-      console.log("Home received location:", location);
-      setLocation(location);
-      setLocation(location.city);
-      setLocation({
-        latitude: location.lat,
-        longitude: location.lng,
-      });
-    } else {
-      fetchCurrentLocation();
+  const fetchWeatherData = async (lat, lng) => {
+    try {
+      const response = await axios.get(
+        `https://api.weatherapi.com/v1/current.json?key=${weatherapi}&q=${lat},${lng}`
+      );
+
+      return {
+        temperature: Math.round(response.data.current.temp_c),
+        condition: response.data.current.condition.text,
+        icon: getWeatherIcon(response.data.current.condition.code),
+      };
+    } catch (error) {
+      console.error("Error fetching weather:", error);
+      return null;
     }
-  }, [route.params?.selectedLocation]);
+  };
 
-  useEffect(() => {
-    // In a real app, you'd fetch this data from your backend/Firebase
-    const fetchUserData = async () => {
-      try {
-        // Get current user from Firebase
-        const currentUser = firebase_auth.currentUser;
-
-        if (currentUser) {
-          setUser({
-            displayName: currentUser.displayName || "Traveler",
-            photoURL: currentUser.photoURL || "https://via.placeholder.com/150",
-          });
-        }
-
-        // Mock data for upcoming trips
-        setUpcomingTrips([
-          {
-            id: "1",
-            destination: "Bali",
-            country: "Indonesia",
-            startDate: "2024-07-15",
-            endDate: "2024-07-22",
-            image:
-              "https://images.unsplash.com/photo-1537996194471-e657df975ab4?q=80&w=800&auto=format&fit=crop",
-            daysLeft: 32,
-          },
-          {
-            id: "2",
-            destination: "Paris",
-            country: "France",
-            startDate: "2024-08-10",
-            endDate: "2024-08-17",
-            image:
-              "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?q=80&w=800&auto=format&fit=crop",
-            daysLeft: 58,
-          },
-        ]);
-
-        // Mock data for recently viewed destinations
-        setRecentViews([
-          {
-            id: "1",
-            name: "Santorini",
-            country: "Greece",
-            image:
-              "https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?q=80&w=800&auto=format&fit=crop",
-          },
-          {
-            id: "2",
-            name: "Tokyo",
-            country: "Japan",
-            image:
-              "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?q=80&w=800&auto=format&fit=crop",
-          },
-          {
-            id: "3",
-            name: "Rome",
-            country: "Italy",
-            image:
-              "https://images.unsplash.com/photo-1604580864964-0462f5d5b1a8?q=80&w=800&auto=format&fit=crop",
-          },
-        ]);
-
-        // Mock data for recommended destinations
-        setRecommendations([
-          {
-            id: "1",
-            name: "Kyoto",
-            country: "Japan",
-            image:
-              "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?q=80&w=800&auto=format&fit=crop",
-            description: "Cultural heritage and traditional gardens",
-            rating: 4.7,
-          },
-          {
-            id: "2",
-            name: "Barcelona",
-            country: "Spain",
-            image:
-              "https://images.unsplash.com/photo-1539037116277-4db20889f2d4?q=80&w=800&auto=format&fit=crop",
-            description: "Modern architecture and vibrant culture",
-            rating: 4.6,
-          },
-          {
-            id: "3",
-            name: "Maldives",
-            country: "Maldives",
-            image:
-              "https://images.unsplash.com/photo-1514282401047-d79a71a590e8?q=80&w=800&auto=format&fit=crop",
-            description: "Crystal clear waters and overwater bungalows",
-            rating: 4.9,
-          },
-        ]);
-
-        // Mock current weather data
-        setCurrentWeather({
-          temperature: 28,
-          condition: "Sunny",
-          icon: "sunny",
-        });
-
-        setLoading(false);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-        setLoading(false);
-      }
+  const getWeatherIcon = (code) => {
+    const iconMap = {
+      1000: "sunny",
+      1003: "partly-sunny",
+      1006: "cloudy",
+      1009: "cloudy",
+      1030: "mist",
+      1063: "rainy",
+      1066: "snow",
+      1087: "thunderstorm",
+      1114: "snow",
+      1117: "snow",
+      1135: "mist",
+      1183: "rainy",
+      1189: "rainy",
+      1192: "rainy",
+      1195: "rainy",
+      1225: "snow",
+      1273: "thunderstorm",
+      1276: "thunderstorm",
     };
-
-    fetchUserData();
-  }, []);
+    return iconMap[code] || "partly-sunny";
+  };
 
   const fetchCurrentLocation = async () => {
     let { status } = await Location.requestForegroundPermissionsAsync();
@@ -187,6 +104,7 @@ const Home = ({ route }) => {
     }
 
     try {
+      setLoading(true);
       let loc = await Location.getCurrentPositionAsync({});
       let reverseGeocode = await Location.reverseGeocodeAsync({
         latitude: loc.coords.latitude,
@@ -194,25 +112,63 @@ const Home = ({ route }) => {
       });
 
       if (reverseGeocode.length > 0) {
-        const cityName = reverseGeocode[0].city || "Unknown City";
-        setLocation({
+        const cityName =
+          reverseGeocode[0].city ||
+          reverseGeocode[0].subregion ||
+          reverseGeocode[0].region ||
+          "Unknown City";
+
+        const locationData = {
           city: cityName,
           lat: loc.coords.latitude,
           lng: loc.coords.longitude,
-        });
-      } else {
-        console.error("Reverse geocoding failed.");
+        };
+
+        setLocation(locationData);
+        setCurrentLocation(cityName);
+
+        const weather = await fetchWeatherData(
+          loc.coords.latitude,
+          loc.coords.longitude
+        );
+        if (weather) {
+          setCurrentWeather(weather);
+        }
       }
     } catch (error) {
       console.error("Error fetching location:", error);
+    } finally {
+      setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (route.params?.selectedLocation) {
+      const location = route.params.selectedLocation;
+      console.log("Home received location:", location);
+
+      setLocation({
+        city: location.city,
+        lat: location.lat,
+        lng: location.lng,
+      });
+      setCurrentLocation(location.city);
+
+      fetchWeatherData(location.lat, location.lng).then((weather) => {
+        if (weather) {
+          setCurrentWeather(weather);
+        }
+      });
+    } else {
+      fetchCurrentLocation();
+    }
+  }, [route.params?.selectedLocation]);
 
   const handleLogout = async () => {
     try {
       await firebase_auth.signOut();
       console.log("Signed Out");
-      navigation.navigate("Login"); // Navigate to login screen after logout
+      navigation.navigate("Login");
     } catch (error) {
       console.error("Error signing out:", error.message);
     }
@@ -250,13 +206,11 @@ const Home = ({ route }) => {
 
   const testBackendConnection = async () => {
     try {
-      // First, test if ngrok is up by requesting the root endpoint
       console.log(`Testing connection to: ${BACKEND_URL}`);
       const response = await axios.get(BACKEND_URL);
       console.log("Connection successful!", response.data);
       alert(`Connected to backend server successfully!`);
 
-      // If that works, try the AI endpoint with minimal data
       try {
         console.log(
           `Testing AI endpoint: ${BACKEND_URL}/api/ai-recommendations`
@@ -282,7 +236,6 @@ const Home = ({ route }) => {
     } catch (error) {
       console.error("Connection error:", error);
 
-      // Better error reporting
       if (error.response) {
         console.log("Response status:", error.response.status);
         if (error.response.status === 404) {
@@ -421,7 +374,6 @@ const Home = ({ route }) => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>Good Morning,</Text>
@@ -442,33 +394,39 @@ const Home = ({ route }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Weather & Location */}
         <TouchableOpacity
           style={styles.weatherContainer}
           onPress={() => navigation.navigate("ChangeLocation")}
         >
           <View style={styles.weatherContent}>
-            <Ionicons
-              name={`ios-${currentWeather?.icon || "sunny"}`}
-              size={28}
-              color="#3498db"
-            />
-            <View style={styles.weatherInfo}>
-              <Text style={styles.temperature}>
-                {currentWeather?.temperature || "--"}°C
-              </Text>
-              <Text style={styles.weatherCondition}>
-                {currentWeather?.condition || "Loading..."}
-              </Text>
-            </View>
+            {loading ? (
+              <ActivityIndicator size="small" color="#3498db" />
+            ) : (
+              <>
+                <Ionicons
+                  name={currentWeather?.icon || "sunny"}
+                  size={28}
+                  color="#3498db"
+                />
+                <View style={styles.weatherInfo}>
+                  <Text style={styles.temperature}>
+                    {currentWeather?.temperature || "--"}°C
+                  </Text>
+                  <Text style={styles.weatherCondition}>
+                    {currentWeather?.condition || "Loading..."}
+                  </Text>
+                </View>
+              </>
+            )}
           </View>
           <View style={styles.locationContainer}>
-            <Text style={styles.locationText}>{currentLocation}</Text>
+            <Text style={styles.locationText}>
+              {currentLocation || "Loading location..."}
+            </Text>
             <AntDesign name="right" size={16} color="#888" />
           </View>
         </TouchableOpacity>
 
-        {/* Search Bar */}
         <View style={styles.searchContainer}>
           <View style={styles.searchInputContainer}>
             <Ionicons
@@ -501,7 +459,6 @@ const Home = ({ route }) => {
           </TouchableOpacity>
         </View>
 
-        {/* AI Travel Tools */}
         <View style={styles.aiToolsContainer}>
           <TouchableOpacity
             style={[styles.aiToolCard, styles.aiPlannerCard]}
@@ -540,7 +497,6 @@ const Home = ({ route }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Upcoming Trips */}
         {upcomingTrips.length > 0 && (
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeader}>
@@ -563,7 +519,6 @@ const Home = ({ route }) => {
           </View>
         )}
 
-        {/* Recommended For You */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recommended For You</Text>
@@ -581,7 +536,6 @@ const Home = ({ route }) => {
           />
         </View>
 
-        {/* Recently Viewed */}
         {recentViews.length > 0 && (
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeader}>
@@ -601,7 +555,6 @@ const Home = ({ route }) => {
           </View>
         )}
 
-        {/* Travel Inspiration */}
         <View style={styles.inspirationContainer}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Travel Inspiration</Text>
@@ -633,7 +586,6 @@ const Home = ({ route }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Explore Button */}
         <TouchableOpacity
           style={styles.exploreButton}
           onPress={() => navigation.navigate("Explore")}
@@ -644,7 +596,6 @@ const Home = ({ route }) => {
         <View style={{ height: 30 }} />
       </ScrollView>
 
-      {/* Bottom Tab Bar */}
       <Tabbar />
     </SafeAreaView>
   );

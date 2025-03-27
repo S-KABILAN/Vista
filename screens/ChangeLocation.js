@@ -1,29 +1,79 @@
 import React, { useState } from "react";
 import {
   View,
-  TextInput,
-  StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
+  StyleSheet,
   FlatList,
-  SafeAreaView,
-  StatusBar,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
-import { AntDesign } from "@expo/vector-icons";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import axios from "axios";
-import { googleapis } from "../constants/constant"; // Make sure this file has your API key
+import * as Location from "expo-location";
+import { googleapis } from "../constants/constant";
 
-const ChangeLocation = ({ route, navigation }) => {
-  const [query, setQuery] = useState("");
+const ChangeLocation = ({ navigation, route }) => {
+  const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const returnScreen = route.params?.returnScreen || "MainTabs";
 
-  // This can come from route.params if provided by the calling screen
-  const returnScreen = route.params?.returnScreen || "Home";
-  const onSelectCallback = route.params?.onSelectCallback;
+  const getCurrentLocation = async () => {
+    try {
+      setLoading(true);
 
-  const handleSearch = async (text) => {
-    setQuery(text);
-    if (text.length < 3) {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission Denied",
+          "Please enable location services to use this feature"
+        );
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({});
+
+      const response = await axios.get(
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${location.coords.latitude},${location.coords.longitude}&key=${googleapis}`
+      );
+
+      if (response.data.results.length > 0) {
+        const addressComponents = response.data.results[0].address_components;
+        const cityComponent = addressComponents.find(
+          (component) =>
+            component.types.includes("locality") ||
+            component.types.includes("administrative_area_level_1")
+        );
+
+        const city = cityComponent
+          ? cityComponent.long_name
+          : "Unknown Location";
+        const locationData = {
+          city,
+          lat: location.coords.latitude,
+          lng: location.coords.longitude,
+          current: true,
+        };
+
+        navigation.navigate("MainTabs", {
+          screen: "Home",
+          params: { selectedLocation: locationData },
+        });
+      }
+    } catch (error) {
+      console.error("Error getting current location:", error);
+      Alert.alert("Error", "Failed to get current location");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const searchLocations = async (text) => {
+    setSearchQuery(text);
+    if (text.length < 2) {
       setSuggestions([]);
       return;
     }
@@ -39,100 +89,120 @@ const ChangeLocation = ({ route, navigation }) => {
           },
         }
       );
+
       setSuggestions(response.data.predictions);
     } catch (error) {
-      console.error("Error fetching location suggestions:", error);
+      console.error("Error fetching suggestions:", error);
+      Alert.alert("Error", "Failed to fetch location suggestions");
     }
   };
 
-  const handleSelectLocation = async (placeId) => {
+  const handleLocationSelect = async (prediction) => {
     try {
+      setLoading(true);
+
       const response = await axios.get(
         `https://maps.googleapis.com/maps/api/place/details/json`,
         {
           params: {
-            place_id: placeId,
+            place_id: prediction.place_id,
             key: googleapis,
+            fields: "geometry,formatted_address,name",
           },
         }
       );
 
-      const locationData = response.data.result.geometry.location;
-      const city = response.data.result.name;
-      const formattedAddress = response.data.result.formatted_address;
+      if (response.data.result) {
+        const locationData = {
+          city: prediction.structured_formatting.main_text,
+          lat: response.data.result.geometry.location.lat,
+          lng: response.data.result.geometry.location.lng,
+          formatted_address: response.data.result.formatted_address,
+        };
 
-      // Create the location object with all necessary data
-      const selectedLocation = {
-        city,
-        lat: locationData.lat,
-        lng: locationData.lng,
-        formatted_address: formattedAddress,
-        place_id: placeId,
-      };
-
-      // Check if we have a callback function from the calling screen
-      if (onSelectCallback && typeof onSelectCallback === "function") {
-        // Execute the callback function with selected location data
-        onSelectCallback(selectedLocation);
-        navigation.goBack();
-      } else {
-        // Otherwise use the default behavior - navigate to returnScreen with params
-        navigation.navigate(returnScreen, {
-          selectedLocation: selectedLocation,
+        navigation.navigate("MainTabs", {
+          screen: "Home",
+          params: { selectedLocation: locationData },
         });
       }
     } catch (error) {
-      console.error("Error fetching location details:", error);
+      console.error("Error selecting location:", error);
+      Alert.alert("Error", "Failed to get location details");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <AntDesign name="arrowleft" size={24} color="black" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Change Location</Text>
-        </View>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <MaterialIcons name="arrow-back" size={24} color="#333" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Change Location</Text>
+      </View>
 
-        <View style={styles.searchbar}>
-          <AntDesign name="search1" size={24} color="black" />
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBar}>
+          <Ionicons name="search" size={20} color="#666" />
           <TextInput
-            style={styles.input}
+            style={styles.searchInput}
             placeholder="Search for a city..."
-            value={query}
-            onChangeText={handleSearch}
-            onSubmitEditing={() => handleSearch(query)}
+            value={searchQuery}
+            onChangeText={searchLocations}
+            autoFocus
           />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery("")}>
+              <Ionicons name="close-circle" size={20} color="#666" />
+            </TouchableOpacity>
+          )}
         </View>
 
+        <TouchableOpacity
+          style={styles.currentLocationButton}
+          onPress={getCurrentLocation}
+          disabled={loading}
+        >
+          <Ionicons name="location" size={20} color="#007AFF" />
+          <Text style={styles.currentLocationText}>Current Location</Text>
+        </TouchableOpacity>
+      </View>
+
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+        </View>
+      ) : (
         <FlatList
           data={suggestions}
           keyExtractor={(item) => item.place_id}
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.suggestionItem}
-              onPress={() => handleSelectLocation(item.place_id)}
+              onPress={() => handleLocationSelect(item)}
             >
-              <Text style={styles.suggestionText}>{item.description}</Text>
+              <Ionicons name="location-outline" size={20} color="#666" />
+              <View style={styles.suggestionText}>
+                <Text style={styles.mainText}>
+                  {item.structured_formatting.main_text}
+                </Text>
+                <Text style={styles.secondaryText}>
+                  {item.structured_formatting.secondary_text}
+                </Text>
+              </View>
             </TouchableOpacity>
           )}
         />
-      </View>
+      )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#fff",
-    paddingTop: StatusBar.currentHeight || 0,
-  },
   container: {
     flex: 1,
     backgroundColor: "#fff",
@@ -140,39 +210,67 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
   },
   backButton: {
-    padding: 8,
+    marginRight: 16,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    marginLeft: 16,
   },
-  searchbar: {
+  searchContainer: {
+    padding: 16,
+  },
+  searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f0f0f0",
-    borderRadius: 16,
-    paddingHorizontal: 10,
-    margin: 16,
+    backgroundColor: "#f5f5f5",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
   },
-  input: {
+  searchInput: {
     flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
+    marginLeft: 8,
+    fontSize: 16,
+  },
+  currentLocationButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+  },
+  currentLocationText: {
+    marginLeft: 8,
+    color: "#007AFF",
+    fontSize: 16,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   suggestionItem: {
+    flexDirection: "row",
+    alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#ddd",
-    marginHorizontal: 16,
+    borderBottomColor: "#eee",
   },
   suggestionText: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  mainText: {
     fontSize: 16,
-    color: "#333",
+    fontWeight: "500",
+  },
+  secondaryText: {
+    fontSize: 14,
+    color: "#666",
+    marginTop: 2,
   },
 });
 

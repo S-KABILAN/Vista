@@ -15,7 +15,7 @@ import AIBudgetManager from "../screens/AIBudgetManager";
 import ChangeLocation from "../screens/ChangeLocation";
 import PlaceGo from "../screens/PlaceGo";
 import SavedTravelPlans from "../screens/SavedTravelPlans";
-import { createTravelPlanDetailScreen } from "../screens/TravelPlanDetail";
+import TravelPlanDetail from "../screens/TravelPlanDetail";
 import TravelPreferences from "../screens/TravelPreferences";
 import SavedDestinations from "../screens/SearchDestinations";
 
@@ -24,21 +24,6 @@ import BottomNavigation from "../components/BottomNavigation";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
-
-// Create a temporary TravelPlanDetail component if it doesn't exist yet
-const TravelPlanDetail =
-  createTravelPlanDetailScreen ||
-  (({ route, navigation }) => {
-    const { planId } = route.params || {};
-    return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <Text>Plan details for ID: {planId}</Text>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text>Go Back</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  });
 
 const MainTabs = () => {
   return (
