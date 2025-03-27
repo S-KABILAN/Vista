@@ -18,6 +18,7 @@ import SavedTravelPlans from "../screens/SavedTravelPlans";
 import TravelPlanDetail from "../screens/TravelPlanDetail";
 import TravelPreferences from "../screens/TravelPreferences";
 import SavedDestinations from "../screens/SearchDestinations";
+import SearchResults from "../screens/SearchResults";
 
 // Import custom bottom navigation
 import BottomNavigation from "../components/BottomNavigation";
@@ -56,11 +57,11 @@ const AppNavigation = () => {
         <Stack.Screen name="TravelPlanDetail" component={TravelPlanDetail} />
         <Stack.Screen name="TravelPreferences" component={TravelPreferences} />
         <Stack.Screen name="SavedDestinations" component={SavedDestinations} />
+        <Stack.Screen name="SearchResults" component={SearchResults} />
 
-        {/* These screens are referenced but may not exist yet - comment them out for now */}
+        {/* Keep these commented out until they're implemented */}
         {/* <Stack.Screen name="TripDetails" component={TripDetails} /> */}
         {/* <Stack.Screen name="AllTrips" component={AllTrips} /> */}
-        {/* <Stack.Screen name="SearchResults" component={SearchResults} /> */}
         {/* <Stack.Screen name="Filters" component={Filters} /> */}
         {/* <Stack.Screen name="TravelTips" component={TravelTips} /> */}
         {/* <Stack.Screen name="AllDestinations" component={AllDestinations} /> */}
