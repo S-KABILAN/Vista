@@ -39,100 +39,8 @@ const { width, height } = Dimensions.get("window");
 const CARD_WIDTH = width * 0.8;
 const CARD_HEIGHT = height * 0.25;
 
-// Sample destination data
-const DESTINATIONS = [
-  {
-    id: "1",
-    name: "Paris",
-    country: "France",
-    description:
-      "The City of Light, known for the Eiffel Tower, Louvre Museum, and exquisite cuisine.",
-    image:
-      "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?q=80&w=800&auto=format&fit=crop",
-    coordinates: { latitude: 48.8566, longitude: 2.3522 },
-    rating: 4.7,
-    type: "city",
-    popular: true,
-  },
-  {
-    id: "2",
-    name: "Santorini",
-    country: "Greece",
-    description:
-      "Stunning island with white-washed buildings, blue domes, and breathtaking sunset views.",
-    image:
-      "https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?q=80&w=800&auto=format&fit=crop",
-    coordinates: { latitude: 36.3932, longitude: 25.4615 },
-    rating: 4.8,
-    type: "beach",
-    popular: true,
-  },
-  {
-    id: "3",
-    name: "Kyoto",
-    country: "Japan",
-    description:
-      "Ancient capital with rich cultural heritage, traditional temples, and beautiful gardens.",
-    image:
-      "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?q=80&w=800&auto=format&fit=crop",
-    coordinates: { latitude: 35.0116, longitude: 135.7681 },
-    rating: 4.6,
-    type: "historical",
-    popular: true,
-  },
-  {
-    id: "4",
-    name: "Machu Picchu",
-    country: "Peru",
-    description:
-      "An iconic 15th-century Inca citadel set high in the Andes Mountains.",
-    image:
-      "https://images.unsplash.com/photo-1526392060635-9d6019884377?q=80&w=800&auto=format&fit=crop",
-    coordinates: { latitude: -13.1631, longitude: -72.545 },
-    rating: 4.9,
-    type: "historical",
-    popular: true,
-  },
-  {
-    id: "5",
-    name: "Bali",
-    country: "Indonesia",
-    description:
-      "Tropical paradise with beautiful beaches, lush rice terraces, and vibrant culture.",
-    image:
-      "https://images.unsplash.com/photo-1537996194471-e657df975ab4?q=80&w=800&auto=format&fit=crop",
-    coordinates: { latitude: -8.4095, longitude: 115.1889 },
-    rating: 4.5,
-    type: "beach",
-    popular: false,
-  },
-  {
-    id: "6",
-    name: "New York",
-    country: "United States",
-    description:
-      "The Big Apple with iconic skyscrapers, cultural diversity, and non-stop energy.",
-    image:
-      "https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?q=80&w=800&auto=format&fit=crop",
-    coordinates: { latitude: 40.7128, longitude: -74.006 },
-    rating: 4.5,
-    type: "city",
-    popular: false,
-  },
-  {
-    id: "7",
-    name: "Cape Town",
-    country: "South Africa",
-    description:
-      "Stunning coastal city with Table Mountain, diverse culture, and beautiful landscapes.",
-    image:
-      "https://images.unsplash.com/photo-1580060839134-75a5edca2e99?q=80&w=800&auto=format&fit=crop",
-    coordinates: { latitude: -33.9249, longitude: 18.4241 },
-    rating: 4.6,
-    type: "coastal",
-    popular: false,
-  },
-];
+// Replace DESTINATIONS constant with an empty array, since we'll fetch data from API
+const DESTINATIONS = [];
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyA0E_xu1VBpJ7gxVvfZ8bMXqmNe3advwes";
 
@@ -172,6 +80,15 @@ const Globe = ({ navigation, route }) => {
   const [routeMode, setRouteMode] = useState("driving");
   const [originAddress, setOriginAddress] = useState("Starting point");
   const [destinationAddress, setDestinationAddress] = useState("Destination");
+  // Add the missing state variables here
+  const [dynamicDestinations, setDynamicDestinations] = useState([]);
+  const [isLoadingDestinations, setIsLoadingDestinations] = useState(false);
+  const [selectedCategory, setSelectedCategory] =
+    useState("tourist_attraction");
+  const [currentPage, setCurrentPage] = useState(0);
+  const [nextPageToken, setNextPageToken] = useState(null);
+  const [isExploring, setIsExploring] = useState(false);
+  const [exploreRegion, setExploreRegion] = useState(null);
 
   // Refs
   const mapRef = useRef(null);
@@ -183,14 +100,16 @@ const Globe = ({ navigation, route }) => {
   const cardAnimation = useRef(new Animated.Value(height)).current;
   const scrollX = useRef(new Animated.Value(0)).current;
 
-  // Filter options
+  // Replace sample filter options with Google Places supported types
   const filterOptions = [
     { id: "all", label: "All", icon: "globe" },
-    { id: "popular", label: "Popular", icon: "star" },
-    { id: "city", label: "Cities", icon: "building" },
-    { id: "beach", label: "Beaches", icon: "umbrella-beach" },
-    { id: "historical", label: "Historical", icon: "monument" },
-    { id: "coastal", label: "Coastal", icon: "water" },
+    { id: "tourist_attraction", label: "Attractions", icon: "monument" },
+    { id: "restaurant", label: "Restaurants", icon: "utensils" },
+    { id: "lodging", label: "Hotels", icon: "hotel" },
+    { id: "museum", label: "Museums", icon: "university" },
+    { id: "amusement_park", label: "Parks", icon: "tree" },
+    { id: "shopping_mall", label: "Shopping", icon: "shopping-bag" },
+    { id: "bar", label: "Nightlife", icon: "glass-martini-alt" },
   ];
 
   // New mapType options
@@ -371,9 +290,47 @@ const Globe = ({ navigation, route }) => {
     }
   };
 
-  const handleCardPress = (destination) => {
-    // Navigate to destination details
-    navigation.navigate("PlaceDetails", { destination });
+  // Replace with enhanced version that fetches additional details
+  const handleCardPress = async (destination) => {
+    try {
+      setLoading(true);
+
+      // Only fetch additional details if we have a place_id
+      if (destination.place_id) {
+        const details = await fetchPlaceDetails(destination.place_id);
+
+        if (details) {
+          // Merge the details with the destination
+          const enhancedDestination = {
+            ...destination,
+            phone: details.formatted_phone_number,
+            website: details.website,
+            address: details.formatted_address,
+            opening_hours: details.opening_hours,
+            photos: details.photos,
+            reviews: details.reviews,
+            price_level: details.price_level,
+            editorial_summary: details.editorial_summary,
+          };
+
+          // Navigate with enhanced destination
+          navigation.navigate("PlaceDetails", {
+            destination: enhancedDestination,
+          });
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Fallback to basic navigation if no details available
+      navigation.navigate("PlaceDetails", { destination });
+    } catch (error) {
+      console.error("Error fetching place details:", error);
+      // Navigate with original destination if there's an error
+      navigation.navigate("PlaceDetails", { destination });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const toggleSearchBar = () => {
@@ -448,6 +405,25 @@ const Globe = ({ navigation, route }) => {
 
   const handleFilterPress = (filterId) => {
     setActiveFilter(filterId);
+
+    if (exploreRegion) {
+      // If we're already exploring a region, refresh with the new filter
+      fetchPlacesWithNewFilter(filterId);
+    } else if (filterId === "all") {
+      // If no specific region is being explored, and "all" is selected,
+      // just show the popular destinations again
+      setFilteredDestinations(dynamicDestinations);
+    } else {
+      // Filter the existing destinations
+      const filtered = dynamicDestinations.filter(
+        (place) =>
+          place.type === filterId ||
+          (place.type && place.type.includes(filterId))
+      );
+      setFilteredDestinations(
+        filtered.length > 0 ? filtered : dynamicDestinations
+      );
+    }
   };
 
   const planTrip = () => {
@@ -1056,6 +1032,343 @@ const Globe = ({ navigation, route }) => {
     fetchAddresses();
   }, [routeOrigin, routeDestination]);
 
+  // Add a function to fetch popular destinations from Google Places API
+  const fetchPopularDestinations = async () => {
+    try {
+      setIsLoadingDestinations(true);
+
+      // Initial set of destinations for different regions around the world
+      const popularRegions = [
+        { name: "Paris", latitude: 48.8566, longitude: 2.3522 },
+        { name: "New York", latitude: 40.7128, longitude: -74.006 },
+        { name: "Tokyo", latitude: 35.6762, longitude: 139.6503 },
+        { name: "Sydney", latitude: -33.8688, longitude: 151.2093 },
+        { name: "Cape Town", latitude: -33.9249, longitude: 18.4241 },
+        { name: "Rio de Janeiro", latitude: -22.9068, longitude: -43.1729 },
+      ];
+
+      const results = [];
+
+      // For each region, fetch nearby tourist attractions
+      for (const region of popularRegions) {
+        const data = await fetchPlacesNearLocation(
+          region.latitude,
+          region.longitude,
+          10000, // 10km radius
+          "tourist_attraction",
+          null,
+          true // This is for popular destinations
+        );
+
+        if (data && data.results) {
+          results.push(...data.results);
+        }
+      }
+
+      // Process and set the destinations
+      const destinations = processPlacesResults(results, true);
+      setDynamicDestinations(destinations);
+      setFilteredDestinations(destinations);
+
+      setIsLoadingDestinations(false);
+    } catch (error) {
+      console.error("Error fetching popular destinations:", error);
+      setIsLoadingDestinations(false);
+      Alert.alert(
+        "Error",
+        "Failed to load popular destinations. Please try again later."
+      );
+    }
+  };
+
+  // Function to fetch places near a location
+  const fetchPlacesNearLocation = async (
+    latitude,
+    longitude,
+    radius = 5000,
+    type = null,
+    pageToken = null,
+    rankByImportance = false
+  ) => {
+    try {
+      let url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&key=${GOOGLE_MAPS_API_KEY}`;
+
+      if (rankByImportance) {
+        url += `&rankby=prominence&radius=${radius}`;
+      } else {
+        url += `&radius=${radius}`;
+      }
+
+      if (type && type !== "all") {
+        url += `&type=${type}`;
+      }
+
+      if (pageToken) {
+        url += `&pagetoken=${pageToken}`;
+      }
+
+      console.log("Fetching places:", url);
+
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.status === "OK" || data.status === "ZERO_RESULTS") {
+        // Store the next page token if available
+        if (data.next_page_token) {
+          setNextPageToken(data.next_page_token);
+        } else {
+          setNextPageToken(null);
+        }
+
+        return data;
+      } else {
+        console.error("Places API error:", data.status, data.error_message);
+        throw new Error(data.error_message || "Failed to fetch places");
+      }
+    } catch (error) {
+      console.error("Error in fetchPlacesNearLocation:", error);
+      throw error;
+    }
+  };
+
+  // Function to fetch place details with photo
+  const fetchPlaceDetails = async (placeId) => {
+    try {
+      const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_address,rating,photo,editorial_summary,geometry,type,opening_hours,price_level,user_ratings_total,website,formatted_phone_number&key=${GOOGLE_MAPS_API_KEY}`;
+
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.status === "OK") {
+        return data.result;
+      } else {
+        console.error("Place Details API error:", data.status);
+        return null;
+      }
+    } catch (error) {
+      console.error("Error fetching place details:", error);
+      return null;
+    }
+  };
+
+  // Process places results into our app's format
+  const processPlacesResults = (results, isPopular = false) => {
+    return results.map((place, index) => {
+      // Use first photo if available, otherwise use a placeholder
+      const photoReference =
+        place.photos && place.photos.length > 0
+          ? place.photos[0].photo_reference
+          : null;
+
+      const photoUrl = photoReference
+        ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${photoReference}&key=${GOOGLE_MAPS_API_KEY}`
+        : "https://maps.gstatic.com/mapfiles/place_api/icons/v1/png_71/generic_business-71.png";
+
+      // Extract country from vicinity or formatted_address, if available
+      let country = "";
+      const address = place.vicinity || place.formatted_address || "";
+      const addressParts = address.split(", ");
+      if (addressParts.length > 1) {
+        country = addressParts[addressParts.length - 1];
+      }
+
+      return {
+        id: place.place_id || `place-${index}`,
+        name: place.name || "Unnamed Place",
+        country: country,
+        description:
+          place.editorial_summary?.overview ||
+          `Explore this interesting ${
+            place.types ? place.types[0].replace(/_/g, " ") : "place"
+          } with a rating of ${place.rating || "N/A"}.`,
+        image: photoUrl,
+        coordinates: {
+          latitude: place.geometry.location.lat,
+          longitude: place.geometry.location.lng,
+        },
+        rating: place.rating || 0,
+        type: place.types ? place.types[0] : "other",
+        popular: isPopular,
+        place_id: place.place_id,
+        // Store additional details for later use
+        vicinity: place.vicinity || place.formatted_address,
+        user_ratings_total: place.user_ratings_total,
+        price_level: place.price_level,
+      };
+    });
+  };
+
+  // Function to explore places in the current map region
+  const exploreCurrentRegion = async () => {
+    if (!region) return;
+
+    try {
+      setIsExploring(true);
+      setCurrentPage(0);
+      setNextPageToken(null);
+
+      // Store the region we're exploring
+      setExploreRegion({
+        latitude: region.latitude,
+        longitude: region.longitude,
+      });
+
+      const data = await fetchPlacesNearLocation(
+        region.latitude,
+        region.longitude,
+        5000, // 5km radius from center of current map view
+        activeFilter === "all" ? null : activeFilter
+      );
+
+      if (data && data.results) {
+        const places = processPlacesResults(data.results);
+        setDynamicDestinations(places);
+        setFilteredDestinations(places);
+      } else {
+        setDynamicDestinations([]);
+        setFilteredDestinations([]);
+        Alert.alert(
+          "No Results",
+          "No places found in this area. Try zooming out or changing filters."
+        );
+      }
+    } catch (error) {
+      console.error("Error exploring region:", error);
+      Alert.alert("Error", "Failed to load places. Please try again.");
+    } finally {
+      setIsExploring(false);
+    }
+  };
+
+  // Load more places when scrolling to the end of the carousel
+  const loadMorePlaces = async () => {
+    if (!nextPageToken || isLoadingDestinations || !exploreRegion) return;
+
+    try {
+      setIsLoadingDestinations(true);
+
+      // Wait a short delay as the nextPageToken isn't immediately available
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      const data = await fetchPlacesNearLocation(
+        exploreRegion.latitude,
+        exploreRegion.longitude,
+        5000,
+        activeFilter === "all" ? null : activeFilter,
+        nextPageToken
+      );
+
+      if (data && data.results && data.results.length > 0) {
+        const newPlaces = processPlacesResults(data.results);
+
+        // Combine with existing places, ensuring no duplicates
+        const updatedPlaces = [...dynamicDestinations];
+        newPlaces.forEach((place) => {
+          if (!updatedPlaces.some((p) => p.id === place.id)) {
+            updatedPlaces.push(place);
+          }
+        });
+
+        setDynamicDestinations(updatedPlaces);
+
+        // Update filtered destinations if we're not filtering by search query
+        if (!searchQuery) {
+          setFilteredDestinations(updatedPlaces);
+        } else {
+          // Apply current search filter
+          const filtered = updatedPlaces.filter(
+            (place) =>
+              place.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              (place.country &&
+                place.country.toLowerCase().includes(searchQuery.toLowerCase()))
+          );
+          setFilteredDestinations(filtered);
+        }
+
+        setCurrentPage(currentPage + 1);
+      }
+    } catch (error) {
+      console.error("Error loading more places:", error);
+    } finally {
+      setIsLoadingDestinations(false);
+    }
+  };
+
+  // Update the useEffect to fetch popular destinations on mount
+  useEffect(() => {
+    // Get user's current location
+    const getCurrentLocation = async () => {
+      setLoading(true);
+      try {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+
+        if (status !== "granted") {
+          console.log("Location permission denied");
+          // Fallback to New York coordinates
+          setUserLocation({
+            latitude: 40.7128,
+            longitude: -74.006,
+          });
+        } else {
+          const location = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+
+          setUserLocation({
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+          });
+
+          // Update the map region to user's location
+          setRegion({
+            latitude: location.coords.latitude,
+            longitude: location.coords.longitude,
+            latitudeDelta: 0.1,
+            longitudeDelta: 0.1,
+          });
+        }
+      } catch (error) {
+        console.log("Error getting location:", error);
+        // Fallback to New York coordinates
+        setUserLocation({
+          latitude: 40.7128,
+          longitude: -74.006,
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    getCurrentLocation();
+    fetchPopularDestinations();
+  }, []);
+
+  // Function to fetch places with a new filter
+  const fetchPlacesWithNewFilter = async (filterId) => {
+    if (!exploreRegion) return;
+
+    try {
+      setIsLoadingDestinations(true);
+
+      const data = await fetchPlacesNearLocation(
+        exploreRegion.latitude,
+        exploreRegion.longitude,
+        5000,
+        filterId === "all" ? null : filterId
+      );
+
+      if (data && data.results) {
+        const places = processPlacesResults(data.results);
+        setDynamicDestinations(places);
+        setFilteredDestinations(places);
+      }
+    } catch (error) {
+      console.error("Error fetching places with new filter:", error);
+    } finally {
+      setIsLoadingDestinations(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -1128,6 +1441,17 @@ const Globe = ({ navigation, route }) => {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filtersList}
         />
+
+        <View style={styles.filtersExplanation}>
+          <Text style={styles.filtersExplanationText}>
+            {activeFilter === "all"
+              ? "Showing popular destinations around the world"
+              : `Showing ${
+                  filterOptions.find((f) => f.id === activeFilter)?.label ||
+                  activeFilter
+                }`}
+          </Text>
+        </View>
       </View>
 
       {/* Map */}
@@ -1366,6 +1690,21 @@ const Globe = ({ navigation, route }) => {
               <MaterialIcons name="my-location" size={20} color="#333" />
               <Text style={styles.mapControlLabel}>Find Me</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.mapControlButton}
+              onPress={exploreCurrentRegion}
+              disabled={isExploring}
+            >
+              <MaterialIcons
+                name="explore"
+                size={20}
+                color={isExploring ? "#999" : "#333"}
+              />
+              <Text style={styles.mapControlLabel}>
+                {isExploring ? "Loading..." : "Explore Here"}
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Places category menu */}
@@ -1441,6 +1780,7 @@ const Globe = ({ navigation, route }) => {
             const index = Math.floor(
               event.nativeEvent.contentOffset.x / (CARD_WIDTH + 20)
             );
+
             if (filteredDestinations[index]) {
               setSelectedDestination(filteredDestinations[index]);
 
@@ -1449,8 +1789,8 @@ const Globe = ({ navigation, route }) => {
                 {
                   latitude: filteredDestinations[index].coordinates.latitude,
                   longitude: filteredDestinations[index].coordinates.longitude,
-                  latitudeDelta: 10,
-                  longitudeDelta: 10,
+                  latitudeDelta: 0.1,
+                  longitudeDelta: 0.1,
                 },
                 1000
               );
@@ -1462,7 +1802,26 @@ const Globe = ({ navigation, route }) => {
                 ].showCallout();
               }
             }
+
+            // Check if we're near the end and should load more places
+            if (
+              index >= filteredDestinations.length - 2 &&
+              nextPageToken &&
+              !isLoadingDestinations
+            ) {
+              loadMorePlaces();
+            }
           }}
+          ListFooterComponent={() =>
+            isLoadingDestinations && nextPageToken ? (
+              <View style={styles.carouselFooterLoading}>
+                <ActivityIndicator size="large" color="#3498db" />
+                <Text style={styles.carouselFooterText}>
+                  Loading more places...
+                </Text>
+              </View>
+            ) : null
+          }
         />
       </View>
 
@@ -2465,6 +2824,43 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.3)",
     marginLeft: 6,
     marginVertical: 4,
+  },
+  carouselFooterLoading: {
+    width: CARD_WIDTH,
+    height: CARD_HEIGHT,
+    justifyContent: "center",
+    alignItems: "center",
+    marginHorizontal: 10,
+  },
+  carouselFooterText: {
+    marginTop: 10,
+    color: "#3498db",
+    fontWeight: "bold",
+  },
+  exploreButton: {
+    position: "absolute",
+    top: 85,
+    right: 20,
+    backgroundColor: "#3498db",
+    borderRadius: 25,
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
+  filtersExplanation: {
+    alignItems: "center",
+    marginTop: -10,
+    marginBottom: 5,
+  },
+  filtersExplanationText: {
+    color: "#666",
+    fontSize: 12,
+    fontStyle: "italic",
   },
 });
 

@@ -23,6 +23,7 @@ import SearchResults from "../screens/SearchResults";
 import AllHotels from "../screens/AllHotels";
 import AllAttractions from "../screens/AllAttractions";
 import TransportOptions from "../screens/TransportOptions";
+import AllDestinations from "../screens/AllDestinations";
 
 // Import custom bottom navigation
 import BottomNavigation from "../components/BottomNavigation";
@@ -102,12 +103,16 @@ const AppNavigation = () => {
           component={TransportOptions}
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="AllDestinations"
+          component={AllDestinations}
+          options={{ headerShown: false }}
+        />
         {/* Keep these commented out until they're implemented */}
         {/* <Stack.Screen name="TripDetails" component={TripDetails} /> */}
         {/* <Stack.Screen name="AllTrips" component={AllTrips} /> */}
         {/* <Stack.Screen name="Filters" component={Filters} /> */}
         {/* <Stack.Screen name="TravelTips" component={TravelTips} /> */}
-        {/* <Stack.Screen name="AllDestinations" component={AllDestinations} /> */}
       </Stack.Navigator>
     </NavigationContainer>
   );
