@@ -33,10 +33,17 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../context/AuthContext";
 import * as TravelPlanService from "../services/TravelPlanService";
 import HotelCard from "../components/HotelCard";
+import * as LocationService from "../services/LocationService";
+import * as FlightService from "../services/FlightService";
 
 const { width, height } = Dimensions.get("window");
 
-const AITravelPlanner = ({ navigation }) => {
+// Create a wrapper component for AITravelPlanner that handles route params
+const AITravelPlannerWrapper = ({ route, navigation }) => {
+  return <AITravelPlanner route={route} navigation={navigation} />;
+};
+
+const AITravelPlanner = ({ navigation, route }) => {
   const { user } = useAuth();
   const [destination, setDestination] = useState("");
   const [budget, setBudget] = useState("1000");
@@ -50,7 +57,6 @@ const AITravelPlanner = ({ navigation }) => {
   const [connectionStatus, setConnectionStatus] = useState(null);
   const [formStep, setFormStep] = useState(1); // 1: Destination, 2: Details, 3: Preferences
   const [savedPlanId, setSavedPlanId] = useState(null);
-  const route = useRoute();
 
   // For fullscreen image viewer
   const [fullscreenImage, setFullscreenImage] = useState(null);
@@ -58,12 +64,17 @@ const AITravelPlanner = ({ navigation }) => {
   const [checkInDate, setCheckInDate] = useState("");
   const [checkOutDate, setCheckOutDate] = useState("");
 
+  const [userLocation, setUserLocation] = useState(null);
+  const [transportSelected, setTransportSelected] = useState(false);
+  const [transportType, setTransportType] = useState(null);
+  const [transportDetails, setTransportDetails] = useState(null);
+
   useEffect(() => {
     // Check connection status silently (no alert)
     checkConnectionSilent();
 
     // Check if we have a selected destination from navigation parameters
-    if (route.params?.selectedDestination) {
+    if (route?.params?.selectedDestination) {
       const place = route.params.selectedDestination;
       console.log("Received destination from navigation:", place);
       setDestination(place.name);
@@ -71,13 +82,48 @@ const AITravelPlanner = ({ navigation }) => {
     }
 
     // Handle incoming location data
-    if (route.params?.selectedLocation) {
+    if (route?.params?.selectedLocation) {
       const location = route.params.selectedLocation;
       console.log("Received location:", location);
       setDestination(location.city);
       setSelectedLocation(location);
     }
-  }, [route.params]);
+
+    // Handle transport selection from TransportOptions screen
+    if (route?.params?.transportSelected) {
+      console.log("Transport selected:", route.params);
+      setTransportSelected(true);
+      setTransportType(route.params.transportType);
+      setTransportDetails(route.params.transportDetails);
+
+      // Show success message
+      Alert.alert(
+        "Transportation Selected",
+        `Your ${
+          route.params.transportType === "flight" ? "flight" : "driving route"
+        } has been added to your travel plan.`
+      );
+    }
+  }, [route?.params]);
+
+  useEffect(() => {
+    // Get user's current location
+    const getUserLocation = async () => {
+      try {
+        const location = await LocationService.getCurrentLocation();
+        setUserLocation(location);
+      } catch (error) {
+        console.error("Error getting user location:", error);
+        // Fallback to a default location (New York)
+        setUserLocation({
+          latitude: 40.7128,
+          longitude: -74.006,
+        });
+      }
+    };
+
+    getUserLocation();
+  }, []);
 
   // Function to check connection silently (no alert)
   const checkConnectionSilent = async () => {
@@ -930,157 +976,6 @@ const AITravelPlanner = ({ navigation }) => {
           ))}
         </View>
 
-        {/* Transportation Card */}
-        <View style={styles.planCard}>
-          <Text style={styles.planCardTitle}>Transportation Options</Text>
-          <Text style={styles.transportSubtitle}>
-            Getting to {plan.destination} from your location
-          </Text>
-          <View style={styles.transportationContainer}>
-            {/* Flight Option */}
-            <TouchableOpacity
-              style={styles.transportOptionCard}
-              onPress={() => {
-                Alert.alert(
-                  "Flight to " + plan.destination,
-                  `Estimated flight time: ${getEstimatedFlightTime(
-                    plan.destination
-                  )} hours\n\nEstimated cost: $${getEstimatedTransportCost(
-                    plan.destination,
-                    "flight"
-                  )}\n\nRecommended airlines: Delta, American Airlines, United\n\nNearby airports: ${
-                    plan.destination
-                  } International Airport`,
-                  [
-                    { text: "Close" },
-                    { text: "Search Flights", style: "default" },
-                  ]
-                );
-              }}
-            >
-              <View style={styles.transportIconContainer}>
-                <FontAwesome5 name="plane" size={24} color="#3498db" />
-              </View>
-              <View style={styles.transportDetailsContainer}>
-                <Text style={styles.transportTitle}>Flight</Text>
-                <Text style={styles.transportDetails}>
-                  Fastest option: ~{getEstimatedFlightTime(plan.destination)}{" "}
-                  hours
-                </Text>
-                <Text style={styles.transportPrice}>
-                  From ${getEstimatedTransportCost(plan.destination, "flight")}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#999" />
-            </TouchableOpacity>
-
-            {/* Train Option */}
-            <TouchableOpacity
-              style={[
-                styles.transportOptionCard,
-                !isTrainTravelPossible(plan.destination) &&
-                  styles.transportDisabled,
-              ]}
-              onPress={() => {
-                if (isTrainTravelPossible(plan.destination)) {
-                  Alert.alert(
-                    "Train to " + plan.destination,
-                    `Estimated train time: ${getEstimatedTrainTime(
-                      plan.destination
-                    )} hours\n\nEstimated cost: $${getEstimatedTransportCost(
-                      plan.destination,
-                      "train"
-                    )}\n\nRecommended train services: Amtrak, EuroRail\n\nMain station: ${
-                      plan.destination
-                    } Central Station`,
-                    [
-                      { text: "Close" },
-                      { text: "Search Trains", style: "default" },
-                    ]
-                  );
-                } else {
-                  Alert.alert(
-                    "Train Travel Not Available",
-                    `Train travel to ${plan.destination} is not possible from your current location.`,
-                    [{ text: "OK" }]
-                  );
-                }
-              }}
-            >
-              <View style={styles.transportIconContainer}>
-                <FontAwesome5 name="train" size={24} color="#3498db" />
-              </View>
-              <View style={styles.transportDetailsContainer}>
-                <Text style={styles.transportTitle}>Train</Text>
-                <Text style={styles.transportDetails}>
-                  {isTrainTravelPossible(plan.destination)
-                    ? `Travel time: ~${getEstimatedTrainTime(
-                        plan.destination
-                      )} hours`
-                    : "Not available for this route"}
-                </Text>
-                {isTrainTravelPossible(plan.destination) && (
-                  <Text style={styles.transportPrice}>
-                    From ${getEstimatedTransportCost(plan.destination, "train")}
-                  </Text>
-                )}
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#999" />
-            </TouchableOpacity>
-
-            {/* Driving Option */}
-            <TouchableOpacity
-              style={[
-                styles.transportOptionCard,
-                !isDrivingPossible(plan.destination) &&
-                  styles.transportDisabled,
-              ]}
-              onPress={() => {
-                if (isDrivingPossible(plan.destination)) {
-                  Alert.alert(
-                    "Drive to " + plan.destination,
-                    `Estimated driving time: ${getEstimatedDriveTime(
-                      plan.destination
-                    )} hours\n\nEstimated cost: $${getEstimatedTransportCost(
-                      plan.destination,
-                      "car"
-                    )} (gas, tolls)\n\nDistance: ~${
-                      getEstimatedDriveTime(plan.destination) * 65
-                    } miles\n\nRecommended route: Interstate highways`,
-                    [{ text: "Close" }, { text: "Open Maps", style: "default" }]
-                  );
-                } else {
-                  Alert.alert(
-                    "Driving Not Available",
-                    `Driving to ${plan.destination} is not possible from your current location.`,
-                    [{ text: "OK" }]
-                  );
-                }
-              }}
-            >
-              <View style={styles.transportIconContainer}>
-                <FontAwesome5 name="car" size={24} color="#3498db" />
-              </View>
-              <View style={styles.transportDetailsContainer}>
-                <Text style={styles.transportTitle}>Driving</Text>
-                <Text style={styles.transportDetails}>
-                  {isDrivingPossible(plan.destination)
-                    ? `Travel time: ~${getEstimatedDriveTime(
-                        plan.destination
-                      )} hours`
-                    : "Not available for this route"}
-                </Text>
-                {isDrivingPossible(plan.destination) && (
-                  <Text style={styles.transportPrice}>
-                    Approx ${getEstimatedTransportCost(plan.destination, "car")}
-                  </Text>
-                )}
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#999" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
         {/* Top attractions */}
         {plan.destinationData && plan.destinationData.topAttractions && (
           <View style={styles.planCard}>
@@ -1236,6 +1131,9 @@ const AITravelPlanner = ({ navigation }) => {
             <Text style={styles.planActionButtonTextSecondary}>New Plan</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Transport section */}
+        {renderTransportSection()}
       </ScrollView>
     );
   };
@@ -1614,6 +1512,225 @@ const AITravelPlanner = ({ navigation }) => {
       default:
         return Math.round(baseCost * factor);
     }
+  };
+
+  const handleSelectTransport = () => {
+    if (!plan || !userLocation) {
+      Alert.alert(
+        "Information Required",
+        "Please generate a travel plan first and ensure your location is available."
+      );
+      return;
+    }
+
+    // Get destination coordinates from the plan or selectedDestination
+    let destinationCoords;
+    if (selectedDestination && selectedDestination.coordinates) {
+      destinationCoords = selectedDestination.coordinates;
+    } else if (plan?.destination) {
+      // Try to get coordinates for the destination name
+      LocationService.getCoordinatesFromAddress(plan.destination)
+        .then((coords) => {
+          if (coords) {
+            navigateToTransportOptions(coords);
+          } else {
+            Alert.alert(
+              "Destination Error",
+              "Could not find coordinates for this destination. Please try again."
+            );
+          }
+        })
+        .catch((error) => {
+          console.error("Error getting destination coordinates:", error);
+          Alert.alert(
+            "Location Error",
+            "Could not get coordinates for the destination. Please try again."
+          );
+        });
+      return;
+    } else {
+      Alert.alert(
+        "Destination Required",
+        "Please select a valid destination first."
+      );
+      return;
+    }
+
+    if (destinationCoords) {
+      navigateToTransportOptions(destinationCoords);
+    }
+  };
+
+  const navigateToTransportOptions = (destinationCoords) => {
+    navigation.navigate("TransportOptions", {
+      origin: userLocation,
+      destination: destinationCoords,
+      destinationName: plan?.destination || selectedDestination?.name,
+      departureDate: plan?.startDate || new Date(),
+    });
+  };
+
+  // Inside the render method, add the transport selection button
+  const renderTransportSection = () => {
+    if (!plan) return null;
+
+    return (
+      <View style={styles.sectionContainer}>
+        <View style={styles.sectionHeader}>
+          <FontAwesome5 name="route" size={18} color="#333" />
+          <Text style={styles.sectionTitle}>Transportation</Text>
+
+          {!transportSelected && (
+            <TouchableOpacity
+              style={styles.selectButton}
+              onPress={handleSelectTransport}
+            >
+              <Text style={styles.selectButtonText}>Select</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {transportSelected ? (
+          <View style={styles.selectedTransportContainer}>
+            <View style={styles.transportHeader}>
+              <FontAwesome5
+                name={transportType === "flight" ? "plane" : "car"}
+                size={18}
+                color="#4285F4"
+              />
+              <Text style={styles.transportTypeText}>
+                {transportType === "flight" ? "Flight" : "Driving Route"}
+              </Text>
+            </View>
+
+            {transportType === "flight" ? (
+              <View style={styles.flightDetailsContainer}>
+                <View style={styles.flightRow}>
+                  <Text style={styles.flightLabel}>Airline:</Text>
+                  <Text style={styles.flightValue}>
+                    {FlightService.getAirlineName(transportDetails.airline)}
+                  </Text>
+                </View>
+
+                <View style={styles.flightRow}>
+                  <Text style={styles.flightLabel}>Departure:</Text>
+                  <Text style={styles.flightValue}>
+                    {FlightService.formatFlightDate(
+                      transportDetails.departureTime
+                    )}
+                  </Text>
+                </View>
+
+                <View style={styles.flightRow}>
+                  <Text style={styles.flightLabel}>Arrival:</Text>
+                  <Text style={styles.flightValue}>
+                    {FlightService.formatFlightDate(
+                      transportDetails.arrivalTime
+                    )}
+                  </Text>
+                </View>
+
+                <View style={styles.flightRow}>
+                  <Text style={styles.flightLabel}>Duration:</Text>
+                  <Text style={styles.flightValue}>
+                    {FlightService.formatFlightDuration(
+                      transportDetails.duration
+                    )}
+                  </Text>
+                </View>
+
+                <View style={styles.flightRow}>
+                  <Text style={styles.flightLabel}>Price:</Text>
+                  <Text style={styles.flightValue}>
+                    {transportDetails.currency}{" "}
+                    {parseFloat(transportDetails.price).toFixed(2)}
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.drivingDetailsContainer}>
+                <View style={styles.drivingRow}>
+                  <FontAwesome5 name="road" size={16} color="#757575" />
+                  <Text style={styles.drivingText}>
+                    Distance: {transportDetails.distance} km
+                  </Text>
+                </View>
+
+                <View style={styles.drivingRow}>
+                  <FontAwesome5 name="clock" size={16} color="#757575" />
+                  <Text style={styles.drivingText}>
+                    Duration: ~{Math.floor(transportDetails.duration / 60)}h{" "}
+                    {transportDetails.duration % 60}m
+                  </Text>
+                </View>
+
+                <View style={styles.drivingRow}>
+                  <FontAwesome5 name="gas-pump" size={16} color="#757575" />
+                  <Text style={styles.drivingText}>
+                    Estimated Cost: ${transportDetails.cost.toFixed(2)}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.viewRouteButton}
+                  onPress={() => {
+                    // Debug output before navigation
+                    console.log("Navigating to Globe with params:", {
+                      userLocation,
+                      destination: selectedDestination?.coordinates,
+                      destinationName:
+                        plan?.destination || selectedDestination?.name,
+                    });
+
+                    // Ensure we have valid coordinates
+                    if (!userLocation) {
+                      Alert.alert(
+                        "Missing Location",
+                        "Your current location is not available. Please try again."
+                      );
+                      return;
+                    }
+
+                    if (!selectedDestination?.coordinates) {
+                      Alert.alert(
+                        "Missing Destination",
+                        "Destination coordinates are not available."
+                      );
+                      return;
+                    }
+
+                    // Navigate using the proper nested navigator approach
+                    navigation.navigate("MainTabs", {
+                      screen: "Globe",
+                      params: {
+                        showRoute: true,
+                        origin: userLocation,
+                        destination: {
+                          latitude: selectedDestination?.coordinates?.latitude,
+                          longitude:
+                            selectedDestination?.coordinates?.longitude,
+                        },
+                        destinationName:
+                          plan?.destination || selectedDestination?.name,
+                      },
+                    });
+                  }}
+                >
+                  <Text style={styles.viewRouteButtonText}>View on Map</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        ) : (
+          <View style={styles.transportPlaceholder}>
+            <MaterialIcons name="flight-takeoff" size={24} color="#BDBDBD" />
+            <Text style={styles.transportPlaceholderText}>
+              Select your transportation method
+            </Text>
+          </View>
+        )}
+      </View>
+    );
   };
 
   return (
@@ -2297,90 +2414,108 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   sectionContainer: {
-    padding: 20,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 10,
-  },
-  subSectionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginTop: 10,
-    marginBottom: 5,
-    color: "#555",
-  },
-  recommendationsContainer: {
-    padding: 20,
-  },
-  sectionHeaderRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  viewAllButton: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  viewAllText: {
-    color: "#3498db",
-    fontWeight: "500",
-    marginRight: 4,
-  },
-  transportationContainer: {
-    marginTop: 10,
-  },
-  transportOptionCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F9F9F9",
-    borderWidth: 1,
-    borderColor: "#E0E0E0",
+    backgroundColor: "#fff",
     borderRadius: 10,
     padding: 15,
+    marginBottom: 15,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginLeft: 10,
+    flex: 1,
+  },
+  selectButton: {
+    backgroundColor: "#4285F4",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 15,
+  },
+  selectButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 14,
+  },
+  transportPlaceholder: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 30,
+    backgroundColor: "#f9f9f9",
+    borderRadius: 8,
+  },
+  transportPlaceholderText: {
+    marginTop: 10,
+    color: "#757575",
+    fontSize: 16,
+  },
+  selectedTransportContainer: {
+    backgroundColor: "#f9f9f9",
+    borderRadius: 8,
+    padding: 15,
+  },
+  transportHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  transportTypeText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginLeft: 8,
+    color: "#333",
+  },
+  flightDetailsContainer: {
+    marginTop: 5,
+  },
+  flightRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  flightLabel: {
+    fontSize: 14,
+    color: "#757575",
+  },
+  flightValue: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#333",
+  },
+  drivingDetailsContainer: {
+    marginTop: 5,
+  },
+  drivingRow: {
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 10,
   },
-  transportIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "#f0f8ff",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#3498db",
-  },
-  transportDetailsContainer: {
-    flex: 1,
-    marginLeft: 15,
-  },
-  transportTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
+  drivingText: {
+    fontSize: 14,
+    marginLeft: 10,
     color: "#333",
-    marginBottom: 5,
   },
-  transportDetails: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 3,
+  viewRouteButton: {
+    backgroundColor: "#4285F4",
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 10,
   },
-  transportPrice: {
-    fontSize: 14,
+  viewRouteButtonText: {
+    color: "#fff",
     fontWeight: "bold",
-    color: "#3498db",
-  },
-  transportSubtitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 5,
-    color: "#555",
-  },
-  transportDisabled: {
-    backgroundColor: "#E0E0E0",
+    fontSize: 14,
   },
 });
 
-export default AITravelPlanner;
+export default AITravelPlannerWrapper;

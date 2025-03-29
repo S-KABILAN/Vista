@@ -14,7 +14,8 @@ const JwtStrategy = require("passport-jwt").Strategy;
 const ExtractJwt = require("passport-jwt").ExtractJwt;
 const jwt = require("jsonwebtoken");
 const Amadeus = require("amadeus");
-const hotelRoutes = require('./routes/hotelRoutes');
+const hotelRoutes = require("./routes/hotelRoutes");
+const flightRoutes = require("./routes/flightRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -56,7 +57,8 @@ mongoose
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/travel-plans", travelPlanRoutes);
-app.use('/api/hotels', hotelRoutes);
+app.use("/api/hotels", hotelRoutes);
+app.use("/api/flights", flightRoutes);
 
 // Test route
 app.get("/", (req, res) => {

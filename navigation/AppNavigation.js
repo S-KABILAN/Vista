@@ -2,13 +2,14 @@ import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 
 // Import screens that definitely exist
 import Home from "../screens/Home";
 import Explore from "../screens/Explore";
 import Globe from "../screens/Globe";
 import Profile from "../screens/Profile";
-import AITravelPlanner from "../screens/AITravelPlanner";
+import { default as AITravelPlannerWrapper } from "../screens/AITravelPlanner";
 import PlaceDetails from "../screens/PlaceDetails";
 import AttractionDetails from "../screens/AttractionDetails";
 import AIBudgetManager from "../screens/AIBudgetManager";
@@ -21,6 +22,7 @@ import SavedDestinations from "../screens/SearchDestinations";
 import SearchResults from "../screens/SearchResults";
 import AllHotels from "../screens/AllHotels";
 import AllAttractions from "../screens/AllAttractions";
+import TransportOptions from "../screens/TransportOptions";
 
 // Import custom bottom navigation
 import BottomNavigation from "../components/BottomNavigation";
@@ -28,18 +30,39 @@ import BottomNavigation from "../components/BottomNavigation";
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
+// Container for Globe screen to handle params correctly
+const GlobeScreen = ({ route, navigation }) => {
+  // This allows params to be passed into the tab screen
+  return <Globe route={route} navigation={navigation} />;
+};
+
 const MainTabs = () => {
   return (
     <Tab.Navigator
       tabBar={(props) => <BottomNavigation {...props} />}
       screenOptions={{
         headerShown: false,
+        tabBarIcon: ({ color, size }) => (
+          <Ionicons name="menu" size={size} color={color} />
+        ),
       }}
     >
       <Tab.Screen name="Home" component={Home} />
       <Tab.Screen name="Explore" component={Explore} />
-      <Tab.Screen name="AITravelPlanner" component={AITravelPlanner} />
-      <Tab.Screen name="Globe" component={Globe} />
+      <Tab.Screen
+        name="AITravelPlanner"
+        component={AITravelPlannerWrapper}
+        options={{
+          unmountOnBlur: false, // Keep the state when navigating away
+        }}
+      />
+      <Tab.Screen
+        name="Globe"
+        component={GlobeScreen}
+        options={{
+          unmountOnBlur: true, // This ensures the component remounts with fresh props
+        }}
+      />
       <Tab.Screen name="Profile" component={Profile} />
     </Tab.Navigator>
   );
@@ -49,7 +72,11 @@ const AppNavigation = () => {
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="MainTabs" component={MainTabs} />
+        <Stack.Screen
+          name="MainTabs"
+          component={MainTabs}
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="PlaceDetails" component={PlaceDetails} />
         <Stack.Screen name="AttractionDetails" component={AttractionDetails} />
         <Stack.Screen name="AIBudgetManager" component={AIBudgetManager} />
@@ -68,6 +95,11 @@ const AppNavigation = () => {
         <Stack.Screen
           name="AllAttractions"
           component={AllAttractions}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="TransportOptions"
+          component={TransportOptions}
           options={{ headerShown: false }}
         />
         {/* Keep these commented out until they're implemented */}
