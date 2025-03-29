@@ -8,239 +8,131 @@ import {
   StyleSheet,
   Dimensions,
 } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
+import { FontAwesome5 } from "@expo/vector-icons";
+import { FontAwesome } from "@expo/vector-icons";
 
 const { width } = Dimensions.get("window");
 
 // AttractionCard component with image carousel and intelligent image fallbacks
-const AttractionCard = ({ attraction, apiKey, onImagePress }) => {
-  // Prepare image sources for the attraction
-  const getImageSources = () => {
-    const sources = [];
-
-    // Add photo reference images if available (highest priority)
-    if (attraction.photo) {
-      sources.push({
-        uri: `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${attraction.photo}&key=${apiKey}`,
-      });
-    }
-
-    // Add images array if available
-    if (attraction.images && attraction.images.length > 0) {
-      attraction.images.forEach((imageUri) => {
-        sources.push({ uri: imageUri });
-      });
-    }
-
-    // Add imageUrl if available and not already added
-    if (
-      attraction.imageUrl &&
-      (!attraction.images || !attraction.images.includes(attraction.imageUrl))
-    ) {
-      sources.push({ uri: attraction.imageUrl });
-    }
-
-    // If no images are available, use Unsplash to get a contextual image
-    // based on attraction type and name instead of a map
-    if (sources.length === 0) {
-      // Extract keywords from the attraction name and type
-      const keywords = getRelevantKeywords(attraction);
-      sources.push({
-        uri: `https://source.unsplash.com/800x600/?${encodeURIComponent(
-          keywords
-        )}`,
-      });
-    }
-
-    return sources;
-  };
-
-  // Helper function to extract relevant keywords from attraction
-  const getRelevantKeywords = (attraction) => {
-    let keywords = attraction.name;
-
-    // Add attraction type if available
-    if (attraction.types && attraction.types.length > 0) {
-      // Map API types to more search-friendly terms
-      const typeMapping = {
-        tourist_attraction: "landmark",
-        museum: "museum",
-        art_gallery: "art gallery",
-        amusement_park: "amusement park",
-        aquarium: "aquarium",
-        church: "church",
-        hindu_temple: "hindu temple",
-        mosque: "mosque",
-        synagogue: "synagogue",
-        temple: "temple",
-        zoo: "zoo",
-        park: "park",
-        natural_feature: "nature",
-        point_of_interest: "landmark",
-      };
-
-      // Find the first type that has a mapping
-      const matchedType = attraction.types.find((type) => typeMapping[type]);
-      if (matchedType) {
-        keywords += `,${typeMapping[matchedType]}`;
-      }
-    }
-
-    // Check for specific keywords in the name
-    const commonLandmarks = [
-      "temple",
-      "church",
-      "mosque",
-      "cathedral",
-      "museum",
-      "palace",
-      "castle",
-      "fort",
-      "monument",
-      "statue",
-      "garden",
-      "park",
-      "mountain",
-      "beach",
-      "lake",
-      "waterfall",
-      "bridge",
-      "tower",
-      "market",
-      "square",
-    ];
-
-    // Add the first landmark keyword found in the name
-    const landmarkWord = commonLandmarks.find((word) =>
-      attraction.name.toLowerCase().includes(word)
-    );
-
-    if (landmarkWord && !keywords.toLowerCase().includes(landmarkWord)) {
-      keywords += `,${landmarkWord}`;
-    }
-
-    // Add "travel" to ensure we get travel-related images
-    keywords += ",travel,landmark";
-
-    return keywords;
-  };
-
-  const imageSources = getImageSources();
-
+const AttractionCard = ({ item, onPress, showPricing = false }) => {
+  // Make sure item is always defined with default values
+  const safeItem = item || { name: 'Unknown', category: 'Unknown', rating: 'N/A' };
+  
   return (
-    <View style={styles.attractionItem}>
-      <View style={styles.attractionContent}>
-        <Text style={styles.attractionName}>{attraction.name}</Text>
-        {attraction.rating && (
-          <Text style={styles.attractionRating}>
-            Rating: {attraction.rating}/5
-          </Text>
-        )}
-        {attraction.address && (
-          <Text style={styles.attractionAddress}>{attraction.address}</Text>
+    <TouchableOpacity 
+      style={styles.container}
+      onPress={onPress}
+    >
+      <View style={styles.imageContainer}>
+        {safeItem.photo ? (
+          <Image 
+            source={{ uri: safeItem.photo }} 
+            style={styles.image}
+            resizeMode="cover" 
+          />
+        ) : (
+          <View style={[styles.image, { backgroundColor: '#f0f0f0', justifyContent: 'center', alignItems: 'center' }]}>
+            <FontAwesome5 name="hotel" size={30} color="#ccc" />
+          </View>
         )}
       </View>
-
-      {imageSources.length > 0 && (
-        <View style={styles.imageCarouselContainer}>
-          {imageSources.length === 1 ? (
-            // Single image
-            <TouchableOpacity onPress={() => onImagePress(imageSources[0].uri)}>
-              <Image
-                source={imageSources[0]}
-                style={styles.attractionImage}
-                resizeMode="cover"
-              />
-            </TouchableOpacity>
-          ) : (
-            // Multiple images - show carousel
-            <FlatList
-              data={imageSources}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              pagingEnabled
-              keyExtractor={(_, index) => `image-${index}`}
-              renderItem={({ item, index }) => (
-                <TouchableOpacity onPress={() => onImagePress(item.uri)}>
-                  <Image
-                    source={item}
-                    style={styles.carouselImage}
-                    resizeMode="cover"
-                  />
-                </TouchableOpacity>
-              )}
-            />
-          )}
-          {imageSources.length > 1 && (
-            <View style={styles.imageCountBadge}>
-              <Text style={styles.imageCountText}>
-                {imageSources.length} photos
-              </Text>
+      
+      <View style={styles.content}>
+        <Text style={styles.name} numberOfLines={1}>{safeItem.name}</Text>
+        
+        <View style={styles.detailsRow}>
+          <Text style={styles.category}>{safeItem.category}</Text>
+          
+          {safeItem.rating && (
+            <View style={styles.ratingContainer}>
+              <FontAwesome name="star" size={14} color="#FFD700" />
+              <Text style={styles.rating}>{safeItem.rating}</Text>
             </View>
           )}
         </View>
-      )}
-    </View>
+        
+        {safeItem.address && (
+          <Text style={styles.address} numberOfLines={1}>
+            {safeItem.address}
+          </Text>
+        )}
+        
+        {showPricing && safeItem.price && (
+          <Text style={styles.price}>
+            {safeItem.price}
+          </Text>
+        )}
+      </View>
+    </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  attractionItem: {
-    backgroundColor: "#F9F9F9",
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  attractionContent: {
-    flex: 1,
-    marginRight: 10,
-  },
-  attractionName: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 5,
-  },
-  attractionRating: {
-    fontSize: 14,
-    color: "#FF9800",
-    marginBottom: 5,
-  },
-  attractionAddress: {
-    fontSize: 14,
-    color: "#666",
-  },
-  imageCarouselContainer: {
-    position: "relative",
-    width: 120,
-    height: 120,
-    borderRadius: 10,
-    overflow: "hidden",
-  },
-  attractionImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 10,
-  },
-  carouselImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 10,
-  },
-  imageCountBadge: {
-    position: "absolute",
-    bottom: 5,
-    right: 5,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
+  container: {
+    backgroundColor: '#fff',
     borderRadius: 12,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    height: 110,
   },
-  imageCountText: {
-    color: "#FFF",
-    fontSize: 10,
-    fontWeight: "bold",
+  imageContainer: {
+    width: 110,
+    height: '100%',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  content: {
+    flex: 1,
+    padding: 12,
+    justifyContent: 'space-between',
+  },
+  name: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  detailsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  category: {
+    fontSize: 12,
+    color: '#666',
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  rating: {
+    marginLeft: 4,
+    fontSize: 14,
+    color: '#666',
+  },
+  address: {
+    fontSize: 14,
+    color: '#666',
+  },
+  price: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#4CAF50',
+    marginTop: 4,
   },
 });
 

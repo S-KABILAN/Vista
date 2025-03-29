@@ -1,3 +1,6 @@
+// Load environment variables
+require("dotenv").config();
+
 const express = require("express");
 const axios = require("axios");
 const mongoose = require("mongoose");
@@ -5,7 +8,6 @@ const cors = require("cors");
 const Place = require("./place");
 const UserDetails = require("./userdetails");
 const Notifications = require("./notifications");
-require("dotenv").config();
 const OpenAI = require("openai");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const fs = require("fs");
@@ -15,6 +17,8 @@ const jwt = require("jsonwebtoken");
 const authRoutes = require("./routes/auth");
 const TravelPlan = require("./models/TravelPlan");
 const travelPlanRoutes = require("./routes/travelPlans");
+const Amadeus = require("amadeus");
+const hotelRoutes = require("./routes/hotelRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -26,6 +30,13 @@ const GOOGLE_PLACES_API_KEY = "AIzaSyA0E_xu1VBpJ7gxVvfZ8bMXqmNe3advwes";
 const API_KEY =
   process.env.GOOGLE_API_KEY || "AIzaSyBnDKVfSfmY4HwxmC_VULTfH4UwyDfKF_g";
 const genAI = new GoogleGenerativeAI(API_KEY);
+
+// Initialize Amadeus API client
+const amadeus = new Amadeus({
+  clientId: process.env.AMADEUS_API_KEY || "YOUR_AMADEUS_API_KEY_HERE",
+  clientSecret:
+    process.env.AMADEUS_API_SECRET || "YOUR_AMADEUS_API_SECRET_HERE",
+});
 
 // Connect to MongoDB
 mongoose
@@ -1119,6 +1130,8 @@ app.get("/api/ai-recommendations", async (req, res) => {
       tripDuration,
       season,
       travelStyle,
+      checkInDate,
+      checkOutDate,
     } = req.query;
 
     // Get user ID if authenticated
@@ -1142,6 +1155,8 @@ app.get("/api/ai-recommendations", async (req, res) => {
       preferences,
       season,
       travelStyle,
+      checkInDate,
+      checkOutDate,
     });
 
     if (!destination) {
@@ -1176,6 +1191,37 @@ app.get("/api/ai-recommendations", async (req, res) => {
     }
 
     console.log("Fetched real destination data for:", destination);
+
+    // Parse coordinates
+    let lat, lng;
+    if (coordinates) {
+      [lat, lng] = coordinates.split(",").map(parseFloat);
+    } else {
+      // Use destination data coords if available
+      lat = destinationData?.destinationDetails?.geometry?.location?.lat;
+      lng = destinationData?.destinationDetails?.geometry?.location?.lng;
+    }
+
+    // Get hotel data from Amadeus if coordinates are available
+    let amadeusHotels = [];
+    if (lat && lng) {
+      // Format dates or use defaults (7 days from today)
+      const today = new Date();
+      const defaultCheckIn = today.toISOString().split("T")[0];
+
+      const defaultCheckOut = new Date(today);
+      defaultCheckOut.setDate(
+        defaultCheckOut.getDate() + parseInt(tripDuration) || 7
+      );
+      const defaultCheckOutStr = defaultCheckOut.toISOString().split("T")[0];
+
+      amadeusHotels = await fetchHotelsFromAmadeus(
+        lat,
+        lng,
+        checkInDate || defaultCheckIn,
+        checkOutDate || defaultCheckOutStr
+      );
+    }
 
     // Try with Gemini API first
     try {
@@ -1295,6 +1341,7 @@ Also include:
           topAttractions: destinationData.attractions.slice(0, 5),
           topRestaurants: destinationData.restaurants.slice(0, 5),
           recommendedHotels: destinationData.hotels.slice(0, 3),
+          amadeusHotels: amadeusHotels,
         },
         ...enhancedPlan,
       });
@@ -1345,6 +1392,7 @@ Also include:
           topAttractions: destinationData.attractions.slice(0, 5),
           topRestaurants: destinationData.restaurants.slice(0, 5),
           recommendedHotels: destinationData.hotels.slice(0, 3),
+          amadeusHotels: amadeusHotels,
         },
         ...enhancedPlan,
       });
@@ -1890,6 +1938,9 @@ app.use("/api/auth", authRoutes);
 // Mount travel plans routes
 app.use("/api/travel-plans", travelPlanRoutes);
 
+// Mount hotel routes
+app.use("/api/hotels", hotelRoutes);
+
 // Start the server
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
@@ -1935,4 +1986,48 @@ function extractKeywordsFromName(name) {
   }
 
   return keywords;
+}
+
+// Add this function to fetch hotels from Amadeus
+async function fetchHotelsFromAmadeus(
+  latitude,
+  longitude,
+  checkInDate,
+  checkOutDate
+) {
+  try {
+    const response = await amadeus.shopping.hotelOffers.get({
+      latitude: latitude,
+      longitude: longitude,
+      checkInDate: checkInDate,
+      checkOutDate: checkOutDate,
+      radius: 20,
+      radiusUnit: "KM",
+      roomQuantity: 1,
+      adults: 1,
+      bestRateOnly: true,
+      view: "FULL",
+      limit: 100, // Increased limit to get more hotels
+    });
+
+    console.log(`Amadeus API returned ${response.data.length} hotels`);
+
+    return response.data.map((hotel) => ({
+      id: hotel.hotel.hotelId,
+      name: hotel.hotel.name,
+      rating: hotel.hotel.rating,
+      address: hotel.hotel.address,
+      price: hotel.offers[0]?.price?.total || "Price unavailable",
+      currency: hotel.offers[0]?.price?.currency || "USD",
+      description:
+        hotel.hotel.description?.text ||
+        `${hotel.hotel.name} in ${hotel.hotel.address.cityName}`,
+      amenities: hotel.hotel.amenities || [],
+      images: hotel.hotel.media?.map((item) => item.uri) || [],
+      bookingLink: hotel.offers[0]?.self || null,
+    }));
+  } catch (error) {
+    console.error("Error fetching hotels from Amadeus:", error);
+    return [];
+  }
 }

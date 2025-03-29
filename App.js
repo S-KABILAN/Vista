@@ -27,6 +27,7 @@ import ChangeLocation from "./screens/ChangeLocation";
 import PlaceGo from "./screens/PlaceGo";
 import AITravelPlanner from "./screens/AITravelPlanner";
 import AIBudgetManager from "./screens/AIBudgetManager";
+import AllHotels from './screens/AllHotels';
 
 // Import navigation
 import AppNavigation from "./navigation/AppNavigation";
@@ -69,6 +70,7 @@ const MainApp = () => {
             <Stack.Screen name="Register" component={Register} />
             <Stack.Screen name="NamePage" component={NamePage} />
             <Stack.Screen name="Forgot" component={Forgot} />
+            <Stack.Screen name="AllHotels" component={AllHotels} options={{ headerShown: false }} />
           </Stack.Navigator>
         </NavigationContainer>
       )}

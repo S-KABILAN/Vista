@@ -1,3 +1,6 @@
+// Load environment variables
+require("dotenv").config();
+
 const express = require("express");
 const mongoose = require("mongoose");
 const passport = require("passport");
@@ -10,9 +13,18 @@ const { configurePassport } = require("./config/passport");
 const JwtStrategy = require("passport-jwt").Strategy;
 const ExtractJwt = require("passport-jwt").ExtractJwt;
 const jwt = require("jsonwebtoken");
+const Amadeus = require("amadeus");
+const hotelRoutes = require('./routes/hotelRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Initialize Amadeus API client
+const amadeus = new Amadeus({
+  clientId: process.env.AMADEUS_API_KEY || "YOUR_AMADEUS_API_KEY_HERE",
+  clientSecret:
+    process.env.AMADEUS_API_SECRET || "YOUR_AMADEUS_API_SECRET_HERE",
+});
 
 // Middleware
 app.use(
@@ -44,6 +56,7 @@ mongoose
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/travel-plans", travelPlanRoutes);
+app.use('/api/hotels', hotelRoutes);
 
 // Test route
 app.get("/", (req, res) => {

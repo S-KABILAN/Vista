@@ -32,6 +32,7 @@ import AttractionCard from "../components/AttractionCard";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../context/AuthContext";
 import * as TravelPlanService from "../services/TravelPlanService";
+import HotelCard from "../components/HotelCard";
 
 const { width, height } = Dimensions.get("window");
 
@@ -53,6 +54,9 @@ const AITravelPlanner = ({ navigation }) => {
 
   // For fullscreen image viewer
   const [fullscreenImage, setFullscreenImage] = useState(null);
+
+  const [checkInDate, setCheckInDate] = useState("");
+  const [checkOutDate, setCheckOutDate] = useState("");
 
   useEffect(() => {
     // Check connection status silently (no alert)
@@ -582,6 +586,44 @@ const AITravelPlanner = ({ navigation }) => {
               />
             </View>
           </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Check-in Date (optional)</Text>
+            <View style={styles.inputContainer}>
+              <Ionicons
+                name="calendar"
+                size={22}
+                color="#3498db"
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={styles.input}
+                value={checkInDate}
+                onChangeText={setCheckInDate}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor="#999"
+              />
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Check-out Date (optional)</Text>
+            <View style={styles.inputContainer}>
+              <Ionicons
+                name="calendar"
+                size={22}
+                color="#3498db"
+                style={styles.inputIcon}
+              />
+              <TextInput
+                style={styles.input}
+                value={checkOutDate}
+                onChangeText={setCheckOutDate}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor="#999"
+              />
+            </View>
+          </View>
         </View>
 
         <View style={styles.buttonRow}>
@@ -914,6 +956,9 @@ const AITravelPlanner = ({ navigation }) => {
           </View>
         )}
 
+        {/* Hotels Section */}
+        {renderHotelsSection()}
+
         {/* Recommendations */}
         <View style={styles.planCard}>
           <Text style={styles.planCardTitle}>Recommended for You</Text>
@@ -986,6 +1031,180 @@ const AITravelPlanner = ({ navigation }) => {
     };
 
     return categoryColors[category] || "#3498db";
+  };
+
+  // Update your getRecommendations function
+  const getRecommendations = async () => {
+    if (!destination) {
+      Alert.alert("Error", "Please enter a destination");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Calculate default dates if not set
+      const today = new Date();
+      const defaultCheckIn = today.toISOString().split("T")[0];
+
+      const defaultCheckOut = new Date(today);
+      defaultCheckOut.setDate(
+        defaultCheckOut.getDate() + (parseInt(tripDuration) || 5)
+      );
+      const defaultCheckOutStr = defaultCheckOut.toISOString().split("T")[0];
+
+      const result = await TravelPlanService.getAIRecommendations({
+        destination,
+        placeId: selectedDestination?.place_id,
+        coordinates: selectedDestination?.coordinates,
+        budget,
+        preferences: preferences.split(",").filter(Boolean).join(","),
+        tripDuration,
+        checkInDate: checkInDate || defaultCheckIn,
+        checkOutDate: checkOutDate || defaultCheckOutStr,
+      });
+
+      setPlan(result);
+      setSavedPlanId(result.savedPlanId);
+
+      // Save the plan information to our state
+      if (result.itinerary) {
+        console.log(`Received itinerary with ${result.itinerary.length} days`);
+      }
+
+      // Navigate to the result view
+      setFormStep(4); // Move to the results view
+    } catch (error) {
+      console.error("Error generating travel plan:", error);
+      setError(
+        error.response?.data?.error ||
+          error.message ||
+          "Failed to generate travel plan"
+      );
+
+      // Try to use mock plan as fallback
+      if (!plan) {
+        console.log("Using mock plan as fallback");
+        const mockPlan = generateMockPlan();
+        setPlan(mockPlan);
+        setFormStep(4);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Update the renderHotelsSection function to properly handle undefined data
+  const renderHotelsSection = () => {
+    if (
+      !plan ||
+      (!plan.destinationData?.recommendedHotels?.length &&
+        !plan.destinationData?.amadeusHotels?.length)
+    ) {
+      return null;
+    }
+
+    // Determine how many hotels to initially display (preview mode)
+    const previewCount = 2;
+
+    return (
+      <View style={styles.planCard}>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.planCardTitle}>Recommended Hotels</Text>
+          <TouchableOpacity
+            style={styles.viewAllButton}
+            onPress={() => {
+              // Format coordinates properly
+              let coords;
+
+              if (plan.destinationData?.details?.coordinates) {
+                coords = {
+                  lat:
+                    plan.destinationData.details.coordinates.lat ||
+                    plan.destinationData.details.coordinates.latitude,
+                  lng:
+                    plan.destinationData.details.coordinates.lng ||
+                    plan.destinationData.details.coordinates.longitude,
+                };
+              } else if (selectedDestination?.coordinates) {
+                coords = {
+                  lat:
+                    selectedDestination.coordinates.lat ||
+                    selectedDestination.coordinates.latitude,
+                  lng:
+                    selectedDestination.coordinates.lng ||
+                    selectedDestination.coordinates.longitude,
+                };
+              }
+
+              console.log("Navigating to AllHotels with coordinates:", coords);
+
+              navigation.navigate("AllHotels", {
+                destination: plan.destination || "Unknown destination",
+                amadeusHotels: plan.destinationData?.amadeusHotels || [],
+                recommendedHotels:
+                  plan.destinationData?.recommendedHotels || [],
+                coordinates: coords,
+                checkInDate,
+                checkOutDate,
+              });
+            }}
+          >
+            <Text style={styles.viewAllText}>View All</Text>
+            <AntDesign name="arrowright" size={16} color="#3498db" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Display Amadeus hotels first if available */}
+        {plan.destinationData?.amadeusHotels?.length > 0 && (
+          <>
+            <Text style={styles.subSectionTitle}>
+              Hotels with Real-Time Pricing
+            </Text>
+            {plan.destinationData.amadeusHotels
+              .slice(0, previewCount)
+              .map((hotel, index) => (
+                <HotelCard
+                  key={`amadeus-${index}`}
+                  hotel={hotel}
+                  showPricing={true}
+                />
+              ))}
+          </>
+        )}
+
+        {/* Then display Google hotels if available */}
+        {plan.destinationData?.recommendedHotels?.length > 0 && (
+          <>
+            <Text style={styles.subSectionTitle}>Other Hotel Options</Text>
+            {plan.destinationData.recommendedHotels
+              .slice(0, previewCount)
+              .map((hotel, index) => {
+                const item = {
+                  name: hotel?.name || "Unknown Hotel",
+                  rating: hotel?.rating || "N/A",
+                  address: hotel?.address || "Address not available",
+                  category: "Hotel",
+                  photo:
+                    hotel?.photos && hotel?.photos.length > 0
+                      ? hotel.photos[0].url
+                      : null,
+                  price: hotel?.price_level
+                    ? "$".repeat(hotel.price_level)
+                    : "Price unavailable",
+                };
+
+                return (
+                  <AttractionCard
+                    key={`google-${index}`}
+                    item={item}
+                    showPricing={true}
+                  />
+                );
+              })}
+          </>
+        )}
+      </View>
+    );
   };
 
   return (
@@ -1667,6 +1886,39 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "bold",
+  },
+  sectionContainer: {
+    padding: 20,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  subSectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginTop: 10,
+    marginBottom: 5,
+    color: "#555",
+  },
+  recommendationsContainer: {
+    padding: 20,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  viewAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  viewAllText: {
+    color: "#3498db",
+    fontWeight: "500",
+    marginRight: 4,
   },
 });
 
