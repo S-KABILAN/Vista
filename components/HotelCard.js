@@ -8,6 +8,7 @@ import {
   Linking,
 } from "react-native";
 import { FontAwesome, MaterialIcons } from "@expo/vector-icons";
+import { googleapis } from "../constants/constant";
 
 const HotelCard = ({ hotel, showPricing = false }) => {
   const openBookingLink = () => {
@@ -16,12 +17,46 @@ const HotelCard = ({ hotel, showPricing = false }) => {
     }
   };
 
+  // Get image URL from various possible sources
+  const getImageUrl = () => {
+    // Case 1: Amadeus format with images array
+    if (hotel.images && hotel.images.length > 0) {
+      return hotel.images[0];
+    }
+
+    // Case 2: Google Places format with photo_reference
+    if (hotel.photos && hotel.photos.length > 0) {
+      if (hotel.photos[0].photo_reference) {
+        return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${hotel.photos[0].photo_reference}&key=${googleapis}`;
+      }
+
+      // Case 3: Format with URL property
+      if (hotel.photos[0].url) {
+        return hotel.photos[0].url;
+      }
+
+      // Case 4: Direct string in photos array
+      if (typeof hotel.photos[0] === "string") {
+        return hotel.photos[0];
+      }
+    }
+
+    // Case 5: Single media_url property
+    if (hotel.media_url) {
+      return hotel.media_url;
+    }
+
+    return null;
+  };
+
+  const imageUrl = getImageUrl();
+
   return (
     <View style={styles.container}>
       <View style={styles.imageContainer}>
-        {hotel.images && hotel.images.length > 0 ? (
+        {imageUrl ? (
           <Image
-            source={{ uri: hotel.images[0] }}
+            source={{ uri: imageUrl }}
             style={styles.image}
             resizeMode="cover"
           />
@@ -48,7 +83,8 @@ const HotelCard = ({ hotel, showPricing = false }) => {
 
         {hotel.address && (
           <Text style={styles.address} numberOfLines={1}>
-            {hotel.address.cityName}
+            {hotel.address.cityName ||
+              (typeof hotel.address === "string" ? hotel.address : "")}
             {hotel.address.countryCode ? `, ${hotel.address.countryCode}` : ""}
           </Text>
         )}

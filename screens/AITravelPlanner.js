@@ -387,7 +387,20 @@ const AITravelPlanner = ({ navigation }) => {
 
   // Function to open the fullscreen image viewer
   const openFullscreenImage = (imageUri) => {
-    setFullscreenImage(imageUri);
+    // If it's a photo reference, construct the full URL
+    if (typeof imageUri === "object" && imageUri.photo_reference) {
+      setFullscreenImage(
+        `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${imageUri.photo_reference}&key=${googleapis}`
+      );
+    }
+    // If it's an object with url property
+    else if (typeof imageUri === "object" && imageUri.url) {
+      setFullscreenImage(imageUri.url);
+    }
+    // If it's already a string
+    else {
+      setFullscreenImage(imageUri);
+    }
   };
 
   // Function to close the fullscreen image viewer
@@ -917,42 +930,251 @@ const AITravelPlanner = ({ navigation }) => {
           ))}
         </View>
 
+        {/* Transportation Card */}
+        <View style={styles.planCard}>
+          <Text style={styles.planCardTitle}>Transportation Options</Text>
+          <Text style={styles.transportSubtitle}>
+            Getting to {plan.destination} from your location
+          </Text>
+          <View style={styles.transportationContainer}>
+            {/* Flight Option */}
+            <TouchableOpacity
+              style={styles.transportOptionCard}
+              onPress={() => {
+                Alert.alert(
+                  "Flight to " + plan.destination,
+                  `Estimated flight time: ${getEstimatedFlightTime(
+                    plan.destination
+                  )} hours\n\nEstimated cost: $${getEstimatedTransportCost(
+                    plan.destination,
+                    "flight"
+                  )}\n\nRecommended airlines: Delta, American Airlines, United\n\nNearby airports: ${
+                    plan.destination
+                  } International Airport`,
+                  [
+                    { text: "Close" },
+                    { text: "Search Flights", style: "default" },
+                  ]
+                );
+              }}
+            >
+              <View style={styles.transportIconContainer}>
+                <FontAwesome5 name="plane" size={24} color="#3498db" />
+              </View>
+              <View style={styles.transportDetailsContainer}>
+                <Text style={styles.transportTitle}>Flight</Text>
+                <Text style={styles.transportDetails}>
+                  Fastest option: ~{getEstimatedFlightTime(plan.destination)}{" "}
+                  hours
+                </Text>
+                <Text style={styles.transportPrice}>
+                  From ${getEstimatedTransportCost(plan.destination, "flight")}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#999" />
+            </TouchableOpacity>
+
+            {/* Train Option */}
+            <TouchableOpacity
+              style={[
+                styles.transportOptionCard,
+                !isTrainTravelPossible(plan.destination) &&
+                  styles.transportDisabled,
+              ]}
+              onPress={() => {
+                if (isTrainTravelPossible(plan.destination)) {
+                  Alert.alert(
+                    "Train to " + plan.destination,
+                    `Estimated train time: ${getEstimatedTrainTime(
+                      plan.destination
+                    )} hours\n\nEstimated cost: $${getEstimatedTransportCost(
+                      plan.destination,
+                      "train"
+                    )}\n\nRecommended train services: Amtrak, EuroRail\n\nMain station: ${
+                      plan.destination
+                    } Central Station`,
+                    [
+                      { text: "Close" },
+                      { text: "Search Trains", style: "default" },
+                    ]
+                  );
+                } else {
+                  Alert.alert(
+                    "Train Travel Not Available",
+                    `Train travel to ${plan.destination} is not possible from your current location.`,
+                    [{ text: "OK" }]
+                  );
+                }
+              }}
+            >
+              <View style={styles.transportIconContainer}>
+                <FontAwesome5 name="train" size={24} color="#3498db" />
+              </View>
+              <View style={styles.transportDetailsContainer}>
+                <Text style={styles.transportTitle}>Train</Text>
+                <Text style={styles.transportDetails}>
+                  {isTrainTravelPossible(plan.destination)
+                    ? `Travel time: ~${getEstimatedTrainTime(
+                        plan.destination
+                      )} hours`
+                    : "Not available for this route"}
+                </Text>
+                {isTrainTravelPossible(plan.destination) && (
+                  <Text style={styles.transportPrice}>
+                    From ${getEstimatedTransportCost(plan.destination, "train")}
+                  </Text>
+                )}
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#999" />
+            </TouchableOpacity>
+
+            {/* Driving Option */}
+            <TouchableOpacity
+              style={[
+                styles.transportOptionCard,
+                !isDrivingPossible(plan.destination) &&
+                  styles.transportDisabled,
+              ]}
+              onPress={() => {
+                if (isDrivingPossible(plan.destination)) {
+                  Alert.alert(
+                    "Drive to " + plan.destination,
+                    `Estimated driving time: ${getEstimatedDriveTime(
+                      plan.destination
+                    )} hours\n\nEstimated cost: $${getEstimatedTransportCost(
+                      plan.destination,
+                      "car"
+                    )} (gas, tolls)\n\nDistance: ~${
+                      getEstimatedDriveTime(plan.destination) * 65
+                    } miles\n\nRecommended route: Interstate highways`,
+                    [{ text: "Close" }, { text: "Open Maps", style: "default" }]
+                  );
+                } else {
+                  Alert.alert(
+                    "Driving Not Available",
+                    `Driving to ${plan.destination} is not possible from your current location.`,
+                    [{ text: "OK" }]
+                  );
+                }
+              }}
+            >
+              <View style={styles.transportIconContainer}>
+                <FontAwesome5 name="car" size={24} color="#3498db" />
+              </View>
+              <View style={styles.transportDetailsContainer}>
+                <Text style={styles.transportTitle}>Driving</Text>
+                <Text style={styles.transportDetails}>
+                  {isDrivingPossible(plan.destination)
+                    ? `Travel time: ~${getEstimatedDriveTime(
+                        plan.destination
+                      )} hours`
+                    : "Not available for this route"}
+                </Text>
+                {isDrivingPossible(plan.destination) && (
+                  <Text style={styles.transportPrice}>
+                    Approx ${getEstimatedTransportCost(plan.destination, "car")}
+                  </Text>
+                )}
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#999" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Top attractions */}
         {plan.destinationData && plan.destinationData.topAttractions && (
           <View style={styles.planCard}>
-            <Text style={styles.planCardTitle}>Top Attractions</Text>
-            {plan.destinationData.topAttractions.map((attraction, index) => (
-              <View key={index} style={styles.attractionItemContainer}>
-                {attraction.photos && attraction.photos.length > 0 ? (
-                  <TouchableOpacity
-                    onPress={() => openFullscreenImage(attraction.photos[0])}
-                    style={styles.attractionImageContainer}
-                  >
-                    <Image
-                      source={{ uri: attraction.photos[0] }}
-                      style={styles.attractionImage}
-                    />
-                  </TouchableOpacity>
-                ) : null}
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.planCardTitle}>Top Attractions</Text>
+              <TouchableOpacity
+                style={styles.viewAllButton}
+                onPress={() => {
+                  // Format coordinates properly
+                  let coords;
 
-                <View style={styles.attractionDetails}>
-                  <Text style={styles.attractionName}>{attraction.name}</Text>
-                  {attraction.rating ? (
-                    <View style={styles.attractionRatingContainer}>
-                      <AntDesign name="star" size={14} color="#FFD700" />
-                      <Text style={styles.attractionRatingText}>
-                        {attraction.rating}
+                  if (plan.destinationData?.details?.coordinates) {
+                    coords = {
+                      lat:
+                        plan.destinationData.details.coordinates.lat ||
+                        plan.destinationData.details.coordinates.latitude,
+                      lng:
+                        plan.destinationData.details.coordinates.lng ||
+                        plan.destinationData.details.coordinates.longitude,
+                    };
+                  } else if (selectedDestination?.coordinates) {
+                    coords = {
+                      lat:
+                        selectedDestination.coordinates.lat ||
+                        selectedDestination.coordinates.latitude,
+                      lng:
+                        selectedDestination.coordinates.lng ||
+                        selectedDestination.coordinates.longitude,
+                    };
+                  }
+
+                  console.log(
+                    "Navigating to AllAttractions with coordinates:",
+                    coords
+                  );
+
+                  // Limit to 3 attractions in preview
+                  const previewCount = 3;
+                  navigation.navigate("AllAttractions", {
+                    destination: plan.destination || "Unknown destination",
+                    attractions: plan.destinationData.topAttractions || [],
+                    coordinates: coords,
+                  });
+                }}
+              >
+                <Text style={styles.viewAllText}>View All</Text>
+                <AntDesign name="arrowright" size={16} color="#3498db" />
+              </TouchableOpacity>
+            </View>
+
+            {plan.destinationData.topAttractions
+              .slice(0, 3)
+              .map((attraction, index) => (
+                <View key={index} style={styles.attractionItemContainer}>
+                  {attraction.photos && attraction.photos.length > 0 ? (
+                    <TouchableOpacity
+                      onPress={() =>
+                        openFullscreenImage(
+                          attraction.photos[0].photo_reference
+                            ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${attraction.photos[0].photo_reference}&key=${googleapis}`
+                            : attraction.photos[0]
+                        )
+                      }
+                      style={styles.attractionImageContainer}
+                    >
+                      <Image
+                        source={{
+                          uri: attraction.photos[0].photo_reference
+                            ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${attraction.photos[0].photo_reference}&key=${googleapis}`
+                            : attraction.photos[0],
+                        }}
+                        style={styles.attractionImage}
+                      />
+                    </TouchableOpacity>
+                  ) : null}
+
+                  <View style={styles.attractionDetails}>
+                    <Text style={styles.attractionName}>{attraction.name}</Text>
+                    {attraction.rating ? (
+                      <View style={styles.attractionRatingContainer}>
+                        <AntDesign name="star" size={14} color="#FFD700" />
+                        <Text style={styles.attractionRatingText}>
+                          {attraction.rating}
+                        </Text>
+                      </View>
+                    ) : null}
+                    {attraction.address ? (
+                      <Text style={styles.attractionAddress} numberOfLines={2}>
+                        {attraction.address}
                       </Text>
-                    </View>
-                  ) : null}
-                  {attraction.address ? (
-                    <Text style={styles.attractionAddress} numberOfLines={2}>
-                      {attraction.address}
-                    </Text>
-                  ) : null}
+                    ) : null}
+                  </View>
                 </View>
-              </View>
-            ))}
+              ))}
           </View>
         )}
 
@@ -1186,7 +1408,9 @@ const AITravelPlanner = ({ navigation }) => {
                   category: "Hotel",
                   photo:
                     hotel?.photos && hotel?.photos.length > 0
-                      ? hotel.photos[0].url
+                      ? hotel.photos[0].photo_reference
+                        ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${hotel.photos[0].photo_reference}&key=${googleapis}`
+                        : hotel.photos[0].url || hotel.photos[0]
                       : null,
                   price: hotel?.price_level
                     ? "$".repeat(hotel.price_level)
@@ -1205,6 +1429,191 @@ const AITravelPlanner = ({ navigation }) => {
         )}
       </View>
     );
+  };
+
+  // Helper function to estimate flight time based on destination
+  const getEstimatedFlightTime = (destination) => {
+    // Define common destinations with approximate flight times (in hours)
+    const flightTimeMap = {
+      Paris: 8,
+      London: 7.5,
+      Rome: 9,
+      Tokyo: 13,
+      "New York": 5,
+      "Los Angeles": 5.5,
+      Sydney: 20,
+      Dubai: 14,
+      Bangkok: 18,
+      Singapore: 19,
+      "Hong Kong": 16,
+      Berlin: 9,
+      Barcelona: 9.5,
+      Amsterdam: 8,
+      "Las Vegas": 5,
+      Miami: 3.5,
+      "San Francisco": 5.5,
+      Chicago: 4,
+      Orlando: 3,
+      Toronto: 2.5,
+      "Mexico City": 4,
+      Cairo: 12,
+      Istanbul: 11,
+    };
+
+    // Check if we have a predefined flight time for this destination
+    if (flightTimeMap[destination]) {
+      return flightTimeMap[destination];
+    }
+
+    // Default estimate based on destination name length (this is just for demo purposes)
+    // In a real app, you would use a distance calculation API or geolocation
+    return Math.max(3, Math.min(20, Math.floor(destination.length * 1.2)));
+  };
+
+  // Helper function to estimate train travel time
+  const getEstimatedTrainTime = (destination) => {
+    // Define common destinations with approximate train times (in hours)
+    const trainTimeMap = {
+      Paris: 12,
+      London: 11,
+      Rome: 14,
+      Berlin: 13,
+      Barcelona: 15,
+      Amsterdam: 10,
+      Chicago: 6,
+      Toronto: 4,
+    };
+
+    // Check if we have a predefined train time for this destination
+    if (trainTimeMap[destination]) {
+      return trainTimeMap[destination];
+    }
+
+    // Default train travel time is 1.5x flight time
+    return Math.round(getEstimatedFlightTime(destination) * 1.5);
+  };
+
+  // Helper function to estimate driving time
+  const getEstimatedDriveTime = (destination) => {
+    // Define common destinations with approximate driving times (in hours)
+    const driveTimeMap = {
+      "New York": 4,
+      "Los Angeles": 6,
+      "Las Vegas": 5,
+      Miami: 3,
+      "San Francisco": 8,
+      Chicago: 5,
+      Orlando: 3,
+      Toronto: 5,
+      "Mexico City": 22,
+    };
+
+    // Check if we have a predefined drive time for this destination
+    if (driveTimeMap[destination]) {
+      return driveTimeMap[destination];
+    }
+
+    // Default drive time is roughly 10x flight time (for demo purposes)
+    return Math.round(getEstimatedFlightTime(destination) * 10);
+  };
+
+  // Helper function to check if train travel is possible
+  const isTrainTravelPossible = (destination) => {
+    // List of destinations where train travel is possible
+    const trainPossibleDestinations = [
+      "Paris",
+      "London",
+      "Rome",
+      "Berlin",
+      "Barcelona",
+      "Amsterdam",
+      "Chicago",
+      "Toronto",
+      "Madrid",
+      "Vienna",
+      "Prague",
+      "Brussels",
+      "Venice",
+      "Milan",
+    ];
+
+    return trainPossibleDestinations.includes(destination);
+  };
+
+  // Helper function to check if driving is possible
+  const isDrivingPossible = (destination) => {
+    // List of destinations where driving is not possible (overseas)
+    const nonDrivableDestinations = [
+      "Paris",
+      "London",
+      "Rome",
+      "Tokyo",
+      "Sydney",
+      "Dubai",
+      "Bangkok",
+      "Singapore",
+      "Hong Kong",
+      "Berlin",
+      "Barcelona",
+      "Amsterdam",
+      "Cairo",
+      "Istanbul",
+    ];
+
+    return !nonDrivableDestinations.includes(destination);
+  };
+
+  // Helper function to estimate transportation cost
+  const getEstimatedTransportCost = (destination, transportType) => {
+    // Base costs for different transportation types
+    const baseCosts = {
+      flight: 250,
+      train: 80,
+      car: 30,
+    };
+
+    // Destination cost factors (higher means more expensive)
+    const destinationFactors = {
+      Paris: 1.2,
+      London: 1.3,
+      Rome: 1.1,
+      Tokyo: 1.5,
+      "New York": 1.0,
+      "Los Angeles": 1.1,
+      Sydney: 1.8,
+      Dubai: 1.4,
+      Bangkok: 1.6,
+      Singapore: 1.7,
+      "Hong Kong": 1.5,
+      Berlin: 1.1,
+      Barcelona: 1.0,
+      Amsterdam: 1.2,
+    };
+
+    // Calculate cost based on transportation type and destination
+    const factor = destinationFactors[destination] || 1.0;
+    let baseCost = baseCosts[transportType] || baseCosts.flight;
+
+    // Adjust cost based on transportation type
+    switch (transportType) {
+      case "flight":
+        // Flight cost is based on flight time
+        return Math.round(
+          baseCost * factor * (getEstimatedFlightTime(destination) / 5)
+        );
+      case "train":
+        // Train cost is less affected by distance
+        return Math.round(
+          baseCost * factor * (getEstimatedTrainTime(destination) / 10)
+        );
+      case "car":
+        // Car cost is roughly based on gas price per mile
+        return Math.round(
+          baseCost * factor * (getEstimatedDriveTime(destination) / 3)
+        );
+      default:
+        return Math.round(baseCost * factor);
+    }
   };
 
   return (
@@ -1919,6 +2328,58 @@ const styles = StyleSheet.create({
     color: "#3498db",
     fontWeight: "500",
     marginRight: 4,
+  },
+  transportationContainer: {
+    marginTop: 10,
+  },
+  transportOptionCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F9F9F9",
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 10,
+  },
+  transportIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "#f0f8ff",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#3498db",
+  },
+  transportDetailsContainer: {
+    flex: 1,
+    marginLeft: 15,
+  },
+  transportTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 5,
+  },
+  transportDetails: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 3,
+  },
+  transportPrice: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#3498db",
+  },
+  transportSubtitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 5,
+    color: "#555",
+  },
+  transportDisabled: {
+    backgroundColor: "#E0E0E0",
   },
 });
 

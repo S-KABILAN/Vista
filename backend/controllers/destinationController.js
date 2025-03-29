@@ -314,12 +314,6 @@ router.get("/hotel/:hotelId", async (req, res) => {
   }
 });
 
-module.exports = router;
 
-  } catch (error) {
-    console.error(`Error fetching hotel details:`, error);
-    res.status(500).json({ error: "Failed to fetch hotel details" });
-  }
-});
 
 module.exports = router;
