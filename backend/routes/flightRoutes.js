@@ -102,48 +102,60 @@ router.get("/search", async (req, res) => {
   }
 });
 
-// Convert city name to IATA code
+// Add city code lookup endpoint
 router.get("/city-to-code", async (req, res) => {
   try {
-    const { cityName } = req.query;
-
-    if (!cityName) {
-      return res.status(400).json({ error: "City name is required" });
+    const { city } = req.query;
+    
+    if (!city) {
+      return res.status(400).json({
+        success: false,
+        message: "City parameter is required"
+      });
     }
-
-    const accessToken = await getAmadeusAccessToken();
-
-    // Search for city/airport code
-    const response = await axios.get(
-      "https://test.api.amadeus.com/v1/reference-data/locations",
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-        params: {
-          keyword: cityName,
-          subType: "CITY,AIRPORT",
-        },
-      }
-    );
-
-    if (response.data.data.length === 0) {
-      return res.status(404).json({ error: "No matching locations found" });
+    
+    // Use a simple mapping for common cities
+    const cityCodeMap = {
+      "paris": "PAR",
+      "london": "LON",
+      "new york": "NYC",
+      "tokyo": "TYO",
+      "rome": "ROM",
+      "barcelona": "BCN",
+      "berlin": "BER",
+      "amsterdam": "AMS",
+      "madrid": "MAD",
+      "dubai": "DXB",
+      "singapore": "SIN",
+      "hong kong": "HKG",
+      "bangkok": "BKK",
+      "sydney": "SYD"
+    };
+    
+    const normalizedCity = city.toLowerCase();
+    const cityCode = cityCodeMap[normalizedCity];
+    
+    if (cityCode) {
+      return res.json({
+        success: true,
+        city,
+        code: cityCode
+      });
+    } else {
+      // Fallback to Amadeus API if available
+      // For now return a 404 with helpful message
+      return res.status(404).json({
+        success: false,
+        message: "City code not found. Please enter a major city.",
+        suggestedCities: Object.keys(cityCodeMap)
+      });
     }
-
-    // Return the best matching location code
-    const location = response.data.data[0];
-    res.json({
-      cityName: location.name,
-      cityCode: location.iataCode,
-      countryCode: location.address?.countryCode,
-      locationType: location.subType,
-    });
   } catch (error) {
-    console.error("Error converting city to code:", error);
-    res.status(500).json({
-      error: "Failed to get city code",
-      details: error.response?.data?.errors || error.message,
+    console.error("Error in city-to-code lookup:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error processing city code request",
+      error: error.message
     });
   }
 });

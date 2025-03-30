@@ -201,13 +201,22 @@ const TransportOptions = ({ route, navigation }) => {
   };
 
   const handleGoToGlobe = () => {
-    navigation.navigate("MainTabs", {
-      screen: "Globe",
-      params: {
-        showRoute: true,
-        origin,
-        destination,
-        destinationName: destinationAddress?.city || destination?.name,
+    // Navigate to MapView instead of Globe tab
+    if (!destination || !destination.latitude || !destination.longitude) {
+      Alert.alert(
+        "Navigation Error",
+        "Could not get directions to this location. Please try again."
+      );
+      return;
+    }
+
+    // Navigate to the MapView screen
+    navigation.navigate("MapView", {
+      location: {
+        latitude: destination.latitude,
+        longitude: destination.longitude,
+        name: destinationAddress?.city || destination?.name || "Destination",
+        address: destinationAddress?.fullAddress,
       },
     });
   };

@@ -2,12 +2,13 @@ import axios from "axios";
 import { BACKEND_URL } from "../config";
 
 // Get city code (IATA) from city name
-export const getCityCode = async (cityName) => {
+export const getCityCode = async (city) => {
   try {
+    console.log(`Getting city code for: ${city}`);
     const response = await axios.get(
       `${BACKEND_URL}/api/flights/city-to-code`,
       {
-        params: { cityName },
+        params: { city },
       }
     );
     return response.data;

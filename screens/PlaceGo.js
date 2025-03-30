@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet, Image, Alert, Platform, Linking } from 'react-native';
 import { ScrollView } from 'react-native-web';
 import Tabbar from '../components/Tabbar';
 import { useNavigation } from '@react-navigation/native';
@@ -66,6 +66,38 @@ const PlaceGo = ({ route }) => {
             }
         };
         
+        const navigateToMap = (location) => {
+            if (!location || !location.latitude || !location.longitude) {
+                console.warn("Invalid location for map navigation:", location);
+                Alert.alert(
+                    "Navigation Error",
+                    "Could not get directions to this location. Please try again."
+                );
+                return;
+            }
+            
+            if (Platform.OS === 'ios' || Platform.OS === 'android') {
+                const scheme = Platform.OS === 'ios' ? 'maps:' : 'geo:';
+                const url = Platform.OS === 'ios' 
+                    ? `${scheme}?q=${location.name}&ll=${location.latitude},${location.longitude}` 
+                    : `${scheme}${location.latitude},${location.longitude}?q=${location.name}`;
+                
+                Linking.canOpenURL(url)
+                    .then(supported => {
+                        if (supported) {
+                            return Linking.openURL(url);
+                        } else {
+                            navigation.navigate('MapView', { location });
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Error opening map link:", err);
+                        navigation.navigate('MapView', { location });
+                    });
+            } else {
+                navigation.navigate('MapView', { location });
+            }
+        };
         
     return (
         <View style={styles.container}>
