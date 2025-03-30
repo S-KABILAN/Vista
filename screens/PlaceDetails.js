@@ -524,13 +524,9 @@ const PlaceDetails = ({ route, navigation }) => {
 
         {/* Forecast */}
         <Text style={styles.forecastTitle}>3-Day Forecast</Text>
-        <FlatList
-          data={weather.forecast}
-          keyExtractor={(item, index) => `forecast-${index}`}
-          horizontal={false}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <View style={styles.forecastItem}>
+        <View>
+          {weather.forecast.map((item, index) => (
+            <View key={`forecast-${index}`} style={styles.forecastItem}>
               <View style={styles.forecastDay}>
                 <Text style={styles.forecastDate}>{item.date}</Text>
                 <View style={styles.forecastCondition}>
@@ -587,8 +583,8 @@ const PlaceDetails = ({ route, navigation }) => {
                 </View>
               </View>
             </View>
-          )}
-        />
+          ))}
+        </View>
 
         {/* Best Time to Visit */}
         <View style={styles.bestTimeContainer}>
@@ -786,14 +782,11 @@ const PlaceDetails = ({ route, navigation }) => {
                     <Text style={styles.seeAllText}>See All</Text>
                   </TouchableOpacity>
                 </View>
-                <FlatList
-                  data={attractions.slice(0, 2)}
-                  renderItem={renderAttraction}
-                  keyExtractor={(item) => item.id}
-                  horizontal={false}
-                  scrollEnabled={false}
-                  contentContainerStyle={styles.previewAttractionsList}
-                />
+                {attractions.slice(0, 2).map((item, index) => (
+                  <View key={`attraction-${index}`}>
+                    {renderAttraction({ item })}
+                  </View>
+                ))}
               </View>
             </View>
           )}
@@ -802,29 +795,45 @@ const PlaceDetails = ({ route, navigation }) => {
           {activeTab === "attractions" && (
             <View style={styles.tabContent}>
               <Text style={styles.sectionTitle}>Popular Attractions</Text>
-              <FlatList
-                data={attractions}
-                renderItem={renderAttraction}
-                keyExtractor={(item) => item.id}
-                horizontal={false}
-                scrollEnabled={false}
-                contentContainerStyle={styles.attractionsList}
-              />
+              {attractions.length > 0 ? (
+                <View>
+                  {attractions.map((item, index) => (
+                    <View key={`attraction-${index}`}>
+                      {renderAttraction({ item })}
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text style={styles.noAttractionsText}>
+                  No attractions found for this location.
+                </Text>
+              )}
             </View>
           )}
 
           {/* Photos Tab Content */}
           {activeTab === "photos" && (
             <View style={styles.tabContent}>
-              <Text style={styles.sectionTitle}>Photos</Text>
-              <FlatList
-                data={placePhotos}
-                renderItem={renderPhotoItem}
-                keyExtractor={(item, index) => `photo-${index}`}
-                numColumns={2}
-                scrollEnabled={false}
-                contentContainerStyle={styles.photosGrid}
-              />
+              <View style={styles.photosHeader}>
+                <Text style={styles.sectionTitle}>Photos</Text>
+                <Text style={styles.photoCount}>
+                  {placePhotos.length} photos
+                </Text>
+              </View>
+              <View style={styles.photosGrid}>
+                {placePhotos.map((photo, index) => (
+                  <TouchableOpacity
+                    key={`photo-${index}`}
+                    style={styles.photoItem}
+                  >
+                    <Image
+                      source={{ uri: photo }}
+                      style={styles.photoImage}
+                      resizeMode="cover"
+                    />
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           )}
 
@@ -1301,6 +1310,9 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   photosGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
     marginTop: 5,
   },
   photoItem: {
@@ -1385,6 +1397,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#FFF",
+  },
+  photosHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  photoCount: {
+    fontSize: 14,
+    color: "#666",
+  },
+  noAttractionsText: {
+    fontSize: 15,
+    color: "#666",
+    fontStyle: "italic",
+    textAlign: "center",
+    padding: 20,
   },
 });
 

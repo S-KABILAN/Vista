@@ -205,17 +205,6 @@ const AttractionDetails = ({ route, navigation }) => {
     }
   };
 
-  // Render a photo item
-  const renderPhotoItem = ({ item }) => (
-    <TouchableOpacity style={styles.photoItem}>
-      <Image
-        source={{ uri: item }}
-        style={styles.photoImage}
-        resizeMode="cover"
-      />
-    </TouchableOpacity>
-  );
-
   // Render a review item
   const renderReviewItem = ({ item }) => (
     <View style={styles.reviewItem}>
@@ -301,15 +290,26 @@ const AttractionDetails = ({ route, navigation }) => {
           {/* Additional Photos */}
           {attractionPhotos.length > 1 && (
             <View style={styles.photosSection}>
-              <Text style={styles.sectionTitle}>Photos</Text>
-              <FlatList
-                data={attractionPhotos}
-                renderItem={renderPhotoItem}
-                keyExtractor={(item, index) => `photo-${index}`}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.photosList}
-              />
+              <View style={styles.photosSectionHeader}>
+                <Text style={styles.sectionTitle}>Photos</Text>
+                <Text style={styles.photoCount}>
+                  {attractionPhotos.length} photos
+                </Text>
+              </View>
+              <View style={styles.photosGrid}>
+                {attractionPhotos.map((photo, index) => (
+                  <TouchableOpacity
+                    key={`photo-${index}`}
+                    style={styles.photoItem}
+                  >
+                    <Image
+                      source={{ uri: photo }}
+                      style={styles.photoImage}
+                      resizeMode="cover"
+                    />
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           )}
 
@@ -401,13 +401,15 @@ const AttractionDetails = ({ route, navigation }) => {
           {attractionDetails.reviewsList &&
             attractionDetails.reviewsList.length > 0 && (
               <View style={styles.reviewsSection}>
-                <Text style={styles.sectionTitle}>Reviews</Text>
-                <FlatList
-                  data={attractionDetails.reviewsList.slice(0, 3)}
-                  renderItem={renderReviewItem}
-                  keyExtractor={(item, index) => `review-${index}`}
-                  scrollEnabled={false}
-                />
+                <View style={styles.reviewsSectionHeader}>
+                  <Text style={styles.sectionTitle}>Reviews</Text>
+                  <Text style={styles.reviewCount}>
+                    {attractionDetails.reviewsList.length} reviews
+                  </Text>
+                </View>
+                {attractionDetails.reviewsList
+                  .slice(0, 3)
+                  .map((review, index) => renderReviewItem({ item: review }))}
               </View>
             )}
 
@@ -554,14 +556,26 @@ const styles = StyleSheet.create({
   photosSection: {
     marginBottom: 20,
   },
-  photosList: {
-    paddingRight: 20,
+  photosSectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  photoCount: {
+    fontSize: 14,
+    color: "#666",
+  },
+  photosGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
   },
   photoItem: {
-    width: 150,
-    height: 100,
+    width: (width - 50) / 2,
+    height: (width - 50) / 2,
     borderRadius: 10,
-    marginRight: 10,
+    margin: 5,
     overflow: "hidden",
   },
   photoImage: {
@@ -607,6 +621,16 @@ const styles = StyleSheet.create({
   },
   reviewsSection: {
     marginBottom: 20,
+  },
+  reviewsSectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  reviewCount: {
+    fontSize: 14,
+    color: "#666",
   },
   reviewItem: {
     marginBottom: 15,
