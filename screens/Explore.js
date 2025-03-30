@@ -10,6 +10,7 @@ import {
   FlatList,
   Dimensions,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -19,10 +20,42 @@ import {
   FontAwesome5,
 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import axios from "axios";
+import { googleapis } from "../constants/constant";
 
 const { width } = Dimensions.get("window");
 const cardWidth = width * 0.7;
 const smallCardWidth = width * 0.4;
+
+// Popular travel destinations around the world with coordinates
+const POPULAR_LOCATIONS = [
+  { name: "Paris", latitude: 48.8566, longitude: 2.3522 },
+  { name: "Rome", latitude: 41.9028, longitude: 12.4964 },
+  { name: "New York", latitude: 40.7128, longitude: -74.006 },
+  { name: "Tokyo", latitude: 35.6762, longitude: 139.6503 },
+  { name: "London", latitude: 51.5074, longitude: -0.1278 },
+  { name: "Barcelona", latitude: 41.3851, longitude: 2.1734 },
+];
+
+// Emerging/trending destinations
+const TRENDING_LOCATIONS = [
+  { name: "Lisbon", latitude: 38.7223, longitude: -9.1393 },
+  { name: "Marrakesh", latitude: 31.6295, longitude: -7.9811 },
+  { name: "Seoul", latitude: 37.5665, longitude: 126.978 },
+  { name: "Medellin", latitude: 6.2476, longitude: -75.5676 },
+  { name: "Porto", latitude: 41.1579, longitude: -8.6291 },
+  { name: "Tbilisi", latitude: 41.7151, longitude: 44.8271 },
+];
+
+// Featured/top-rated destination locations
+const FEATURED_LOCATIONS = [
+  { name: "Santorini", latitude: 36.3932, longitude: 25.4615 },
+  { name: "Kyoto", latitude: 35.0116, longitude: 135.7681 },
+  { name: "Bali", latitude: -8.4095, longitude: 115.1889 },
+  { name: "Bora Bora", latitude: -16.5004, longitude: -151.7415 },
+  { name: "Amalfi Coast", latitude: 40.634, longitude: 14.6027 },
+  { name: "Machu Picchu", latitude: -13.1631, longitude: -72.545 },
+];
 
 const Explore = ({ navigation }) => {
   const [searchText, setSearchText] = useState("");
@@ -33,138 +66,129 @@ const Explore = ({ navigation }) => {
   const [categories, setCategories] = useState([]);
   const [activeCategory, setActiveCategory] = useState("All");
 
-  useEffect(() => {
-    // Simulating data fetch
-    const fetchData = async () => {
-      // In a real app, you would fetch this data from your API
-      try {
-        // Simulated API delay
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+  // Fetch places from Google Places API based on location
+  const fetchPlacesForLocation = async (
+    location,
+    type = "tourist_attraction"
+  ) => {
+    try {
+      const response = await axios.get(
+        `https://maps.googleapis.com/maps/api/place/nearbysearch/json`,
+        {
+          params: {
+            location: `${location.latitude},${location.longitude}`,
+            radius: 50000, // 50km radius
+            type: type,
+            key: googleapis,
+            rankby: "prominence",
+          },
+        }
+      );
 
-        setFeaturedDestinations([
-          {
-            id: "1",
-            name: "Santorini",
-            country: "Greece",
-            description:
-              "Famous for its stunning sunsets, white-washed buildings and blue domes",
-            rating: 4.8,
-            image:
-              "https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?q=80&w=800&auto=format&fit=crop",
-            priceRange: "$$$$",
-          },
-          {
-            id: "2",
-            name: "Kyoto",
-            country: "Japan",
-            description:
-              "Ancient temples, traditional gardens and vibrant cherry blossoms",
-            rating: 4.7,
-            image:
-              "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?q=80&w=800&auto=format&fit=crop",
-            priceRange: "$$$",
-          },
-          {
-            id: "3",
-            name: "Bali",
-            country: "Indonesia",
-            description:
-              "Tropical paradise with lush rice terraces, temples and beaches",
-            rating: 4.6,
-            image:
-              "https://images.unsplash.com/photo-1537996194471-e657df975ab4?q=80&w=800&auto=format&fit=crop",
-            priceRange: "$$",
-          },
-        ]);
-
-        setPopularDestinations([
-          {
-            id: "4",
-            name: "Paris",
-            country: "France",
-            image:
-              "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?q=80&w=800&auto=format&fit=crop",
-            rating: 4.6,
-          },
-          {
-            id: "5",
-            name: "Rome",
-            country: "Italy",
-            image:
-              "https://images.unsplash.com/photo-1604580864964-0462f5d5b1a8?q=80&w=800&auto=format&fit=crop",
-            rating: 4.7,
-          },
-          {
-            id: "6",
-            name: "New York",
-            country: "USA",
-            image:
-              "https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?q=80&w=800&auto=format&fit=crop",
-            rating: 4.5,
-          },
-          {
-            id: "7",
-            name: "Tokyo",
-            country: "Japan",
-            image:
-              "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?q=80&w=800&auto=format&fit=crop",
-            rating: 4.8,
-          },
-        ]);
-
-        setTrendingDestinations([
-          {
-            id: "8",
-            name: "Lisbon",
-            country: "Portugal",
-            image:
-              "https://images.unsplash.com/photo-1580323956606-5e31b55e0d77?q=80&w=800&auto=format&fit=crop",
-            trending: "+32%",
-          },
-          {
-            id: "9",
-            name: "Marrakesh",
-            country: "Morocco",
-            image:
-              "https://images.unsplash.com/photo-1545041499-9c8ca5a5a775?q=80&w=800&auto=format&fit=crop",
-            trending: "+28%",
-          },
-          {
-            id: "10",
-            name: "Seoul",
-            country: "South Korea",
-            image:
-              "https://images.unsplash.com/photo-1538485399081-7c9b559c9f9e?q=80&w=800&auto=format&fit=crop",
-            trending: "+45%",
-          },
-          {
-            id: "11",
-            name: "Medellin",
-            country: "Colombia",
-            image:
-              "https://images.unsplash.com/photo-1534520608702-ba7c86788449?q=80&w=800&auto=format&fit=crop",
-            trending: "+52%",
-          },
-        ]);
-
-        setCategories([
-          { id: "1", name: "All", icon: "globe" },
-          { id: "2", name: "Beaches", icon: "umbrella-beach" },
-          { id: "3", name: "Mountains", icon: "mountain" },
-          { id: "4", name: "Cities", icon: "city" },
-          { id: "5", name: "Cultural", icon: "landmark" },
-          { id: "6", name: "Adventure", icon: "hiking" },
-        ]);
-
-        setLoading(false);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-        setLoading(false);
+      if (response.data.status === "OK" && response.data.results.length > 0) {
+        // Process and return place data
+        return response.data.results.map((place) => ({
+          id: place.place_id,
+          name: place.name,
+          country: extractCountry(place),
+          description: place.vicinity || `Explore ${place.name}`,
+          rating: place.rating || 4.5,
+          image:
+            place.photos && place.photos.length > 0
+              ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${place.photos[0].photo_reference}&key=${googleapis}`
+              : `https://maps.googleapis.com/maps/api/streetview?size=800x800&location=${place.geometry.location.lat},${place.geometry.location.lng}&key=${googleapis}`,
+          latitude: place.geometry.location.lat,
+          longitude: place.geometry.location.lng,
+          priceRange: place.price_level ? "$".repeat(place.price_level) : "$$",
+          trending: calculateTrendingPercentage(),
+          place_details: place,
+        }));
       }
-    };
+      return [];
+    } catch (error) {
+      console.error("Error fetching places:", error);
+      return [];
+    }
+  };
 
-    fetchData();
+  // Extract country information from place data
+  const extractCountry = (place) => {
+    if (place.plus_code && place.plus_code.compound_code) {
+      const parts = place.plus_code.compound_code.split(",");
+      return parts[parts.length - 1].trim();
+    }
+    // If we can't extract country, fallback to a region name or placeholder
+    return place.vicinity
+      ? place.vicinity.split(",").pop().trim()
+      : "International";
+  };
+
+  // Generate a realistic trending percentage for trending destinations
+  const calculateTrendingPercentage = () => {
+    return `+${Math.floor(Math.random() * 40) + 20}%`;
+  };
+
+  // Main function to fetch all destination data
+  const fetchAllDestinations = async () => {
+    setLoading(true);
+    try {
+      // 1. Fetch featured destinations data
+      const featuredPromises = FEATURED_LOCATIONS.map((location) =>
+        fetchPlacesForLocation(location, "tourist_attraction")
+      );
+      const featuredResults = await Promise.all(featuredPromises);
+      const allFeaturedPlaces = featuredResults.flat().slice(0, 5);
+
+      // 2. Fetch popular destinations data
+      const popularPromises = POPULAR_LOCATIONS.map((location) =>
+        fetchPlacesForLocation(location, "tourist_attraction")
+      );
+      const popularResults = await Promise.all(popularPromises);
+      const allPopularPlaces = popularResults.flat().slice(0, 6);
+
+      // 3. Fetch trending destinations data
+      const trendingPromises = TRENDING_LOCATIONS.map((location) =>
+        fetchPlacesForLocation(location, "tourist_attraction")
+      );
+      const trendingResults = await Promise.all(trendingPromises);
+      const allTrendingPlaces = trendingResults.flat().slice(0, 6);
+
+      // 4. Set categories - these are static but could be dynamic too
+      const categoriesData = [
+        { id: "1", name: "All", icon: "globe" },
+        { id: "2", name: "Beaches", icon: "umbrella-beach" },
+        { id: "3", name: "Mountains", icon: "mountain" },
+        { id: "4", name: "Cities", icon: "city" },
+        { id: "5", name: "Cultural", icon: "landmark" },
+        { id: "6", name: "Adventure", icon: "hiking" },
+      ];
+
+      // Update state with all fetched data
+      setFeaturedDestinations(allFeaturedPlaces);
+      setPopularDestinations(allPopularPlaces);
+      setTrendingDestinations(allTrendingPlaces);
+      setCategories(categoriesData);
+    } catch (error) {
+      console.error("Error fetching all destinations:", error);
+      Alert.alert(
+        "Error",
+        "Failed to load destinations. Please check your connection and try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAllDestinations();
   }, []);
+
+  // Category filter function
+  const handleCategoryPress = (category) => {
+    setActiveCategory(category.name);
+    // In a real implementation, you would filter destinations based on category
+    // For now, we'll just indicate which category is active
+  };
 
   const handleSearch = () => {
     if (searchText.trim()) {
@@ -173,61 +197,10 @@ const Explore = ({ navigation }) => {
   };
 
   const handleDestinationPress = (destination) => {
-    // For a real app, you would ensure all destinations have coordinates
-    // If missing, you could geocode here or use a lookup from your API
-
-    // Create a destination object with default coordinates if they're missing
-    const destinationWithCoordinates = {
-      ...destination,
-      // Default coordinates that will be used if not present in the destination object
-      latitude: destination.latitude || getDefaultLatitude(destination.name),
-      longitude: destination.longitude || getDefaultLongitude(destination.name),
-    };
-
+    // Pass the destination data to the PlaceDetails screen
     navigation.navigate("PlaceDetails", {
-      destination: destinationWithCoordinates,
+      destination: destination,
     });
-  };
-
-  // Helper function to get default latitude based on destination name
-  // In a real app, you would get this from an API or database
-  const getDefaultLatitude = (destinationName) => {
-    // This is a simplified example - you would implement proper geocoding
-    const defaultCoordinates = {
-      Santorini: 36.3932,
-      Kyoto: 35.0116,
-      Bali: -8.4095,
-      Paris: 48.8566,
-      Rome: 41.9028,
-      "New York": 40.7128,
-      Tokyo: 35.6762,
-      Lisbon: 38.7223,
-      Marrakesh: 31.6295,
-      Seoul: 37.5665,
-      Medellin: 6.2476,
-    };
-
-    return defaultCoordinates[destinationName] || 37.7749; // Default to San Francisco
-  };
-
-  // Helper function to get default longitude based on destination name
-  const getDefaultLongitude = (destinationName) => {
-    // This is a simplified example - you would implement proper geocoding
-    const defaultCoordinates = {
-      Santorini: 25.4615,
-      Kyoto: 135.7681,
-      Bali: 115.1889,
-      Paris: 2.3522,
-      Rome: 12.4964,
-      "New York": -74.006,
-      Tokyo: 139.6503,
-      Lisbon: -9.1393,
-      Marrakesh: -7.9811,
-      Seoul: 126.978,
-      Medellin: -75.5676,
-    };
-
-    return defaultCoordinates[destinationName] || -122.4194; // Default to San Francisco
   };
 
   const renderFeaturedItem = ({ item }) => (
@@ -248,16 +221,12 @@ const Explore = ({ navigation }) => {
               <Text style={styles.rating}>{item.rating}</Text>
             </View>
           </View>
-          <Text style={styles.featuredLocation}>
-            <Ionicons name="location-sharp" size={14} color="#FFF" />{" "}
-            {item.country}
-          </Text>
+          <Text style={styles.featuredLocation}>{item.country}</Text>
           <Text style={styles.featuredDescription} numberOfLines={2}>
             {item.description}
           </Text>
           <View style={styles.priceContainer}>
-            <Text style={styles.priceLabel}>Price Range:</Text>
-            <Text style={styles.price}>{item.priceRange}</Text>
+            <Text style={styles.priceText}>{item.priceRange}</Text>
           </View>
         </View>
       </LinearGradient>
@@ -272,15 +241,10 @@ const Explore = ({ navigation }) => {
       <Image source={{ uri: item.image }} style={styles.popularImage} />
       <View style={styles.popularContent}>
         <Text style={styles.popularName}>{item.name}</Text>
-        <View style={styles.popularSubContent}>
-          <Text style={styles.popularLocation}>
-            <Ionicons name="location-sharp" size={12} color="#666" />{" "}
-            {item.country}
-          </Text>
-          <View style={styles.popularRating}>
-            <AntDesign name="star" size={12} color="#FFD700" />
-            <Text style={styles.popularRatingText}>{item.rating}</Text>
-          </View>
+        <Text style={styles.popularLocation}>{item.country}</Text>
+        <View style={styles.popularRating}>
+          <AntDesign name="star" size={14} color="#FFD700" />
+          <Text style={styles.popularRatingText}>{item.rating}</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -291,16 +255,14 @@ const Explore = ({ navigation }) => {
       style={styles.trendingCard}
       onPress={() => handleDestinationPress(item)}
     >
-      <View style={styles.trendingBadge}>
-        <Text style={styles.trendingText}>{item.trending}</Text>
-      </View>
       <Image source={{ uri: item.image }} style={styles.trendingImage} />
       <View style={styles.trendingContent}>
         <Text style={styles.trendingName}>{item.name}</Text>
-        <Text style={styles.trendingLocation}>
-          <Ionicons name="location-sharp" size={12} color="#666" />{" "}
-          {item.country}
-        </Text>
+        <Text style={styles.trendingLocation}>{item.country}</Text>
+        <View style={styles.trendingBadge}>
+          <AntDesign name="arrowup" size={12} color="#fff" />
+          <Text style={styles.trendingText}>{item.trending}</Text>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -308,15 +270,15 @@ const Explore = ({ navigation }) => {
   const renderCategoryItem = ({ item }) => (
     <TouchableOpacity
       style={[
-        styles.categoryItem,
-        activeCategory === item.name && styles.activeCategoryItem,
+        styles.categoryButton,
+        activeCategory === item.name && styles.activeCategoryButton,
       ]}
-      onPress={() => setActiveCategory(item.name)}
+      onPress={() => handleCategoryPress(item)}
     >
       <FontAwesome5
         name={item.icon}
         size={16}
-        color={activeCategory === item.name ? "#FFF" : "#3498db"}
+        color={activeCategory === item.name ? "#fff" : "#3498db"}
       />
       <Text
         style={[
@@ -331,10 +293,12 @@ const Explore = ({ navigation }) => {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <SafeAreaView style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#3498db" />
-        <Text style={styles.loadingText}>Discovering amazing places...</Text>
-      </View>
+        <Text style={styles.loadingText}>
+          Discovering amazing destinations...
+        </Text>
+      </SafeAreaView>
     );
   }
 
@@ -631,7 +595,7 @@ const styles = StyleSheet.create({
   categoriesList: {
     paddingHorizontal: 15,
   },
-  categoryItem: {
+  categoryButton: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 15,
@@ -645,7 +609,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
   },
-  activeCategoryItem: {
+  activeCategoryButton: {
     backgroundColor: "#3498db",
   },
   categoryText: {
@@ -787,12 +751,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  priceLabel: {
-    fontSize: 12,
-    color: "rgba(255, 255, 255, 0.7)",
-    marginRight: 5,
-  },
-  price: {
+  priceText: {
     fontSize: 14,
     color: "white",
     fontWeight: "bold",
@@ -822,11 +781,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#333",
     marginBottom: 3,
-  },
-  popularSubContent: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
   },
   popularLocation: {
     fontSize: 12,

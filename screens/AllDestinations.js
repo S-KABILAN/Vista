@@ -9,209 +9,44 @@ import {
   SafeAreaView,
   ActivityIndicator,
   StatusBar,
+  Alert,
 } from "react-native";
 import { AntDesign, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import axios from "axios";
+import { googleapis } from "../constants/constant";
 
-// Sample data - in a real app, you would fetch this from an API
-const sampleDestinations = {
+// Location coordinates for different types of destinations
+const LOCATIONS_BY_TYPE = {
   featured: [
-    {
-      id: "f1",
-      name: "Santorini",
-      country: "Greece",
-      image:
-        "https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=687&q=80",
-      rating: 4.8,
-      description:
-        "Known for its stunning white buildings and blue domes overlooking the sea.",
-      latitude: 36.3932,
-      longitude: 25.4615,
-    },
-    {
-      id: "f2",
-      name: "Bali",
-      country: "Indonesia",
-      image:
-        "https://images.unsplash.com/photo-1537996194471-e657df975ab4?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=738&q=80",
-      rating: 4.7,
-      description:
-        "A tropical paradise known for its beautiful beaches, lush rice fields and spiritual culture.",
-      latitude: -8.4095,
-      longitude: 115.1889,
-    },
-    {
-      id: "f3",
-      name: "Kyoto",
-      country: "Japan",
-      image:
-        "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1470&q=80",
-      rating: 4.6,
-      description:
-        "Japan's ancient capital, known for its temples, shrines, traditional wooden houses, and gardens.",
-      latitude: 35.0116,
-      longitude: 135.7681,
-    },
-    {
-      id: "f4",
-      name: "Paris",
-      country: "France",
-      image:
-        "https://images.unsplash.com/photo-1499856871958-5b9627545d1a?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1420&q=80",
-      rating: 4.5,
-      description:
-        "The City of Light, known for its art, fashion, cuisine, and landmarks like the Eiffel Tower.",
-      latitude: 48.8566,
-      longitude: 2.3522,
-    },
-    {
-      id: "f5",
-      name: "New York",
-      country: "United States",
-      image:
-        "https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1470&q=80",
-      rating: 4.6,
-      description:
-        "The city that never sleeps, with its iconic skyline, Central Park, and diverse neighborhoods.",
-      latitude: 40.7128,
-      longitude: -74.006,
-    },
-    {
-      id: "f6",
-      name: "Marrakesh",
-      country: "Morocco",
-      image:
-        "https://images.unsplash.com/photo-1597211684565-dca64d72bdfe?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=735&q=80",
-      rating: 4.4,
-      description:
-        "A vibrant city known for its historic medina, beautiful riads, and colorful markets.",
-      latitude: 31.6295,
-      longitude: -7.9811,
-    },
+    { name: "Santorini", latitude: 36.3932, longitude: 25.4615 },
+    { name: "Kyoto", latitude: 35.0116, longitude: 135.7681 },
+    { name: "Bali", latitude: -8.4095, longitude: 115.1889 },
+    { name: "Bora Bora", latitude: -16.5004, longitude: -151.7415 },
+    { name: "Amalfi Coast", latitude: 40.634, longitude: 14.6027 },
+    { name: "Machu Picchu", latitude: -13.1631, longitude: -72.545 },
+    { name: "Maldives", latitude: 3.2028, longitude: 73.2207 },
+    { name: "Venice", latitude: 45.4408, longitude: 12.3155 },
   ],
   popular: [
-    {
-      id: "p1",
-      name: "Rome",
-      country: "Italy",
-      image:
-        "https://images.unsplash.com/photo-1525874684015-58379d421a52?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1470&q=80",
-      rating: 4.7,
-      description:
-        "The Eternal City, with ancient ruins, Renaissance art, and delicious cuisine.",
-      latitude: 41.9028,
-      longitude: 12.4964,
-    },
-    {
-      id: "p2",
-      name: "Barcelona",
-      country: "Spain",
-      image:
-        "https://images.unsplash.com/photo-1583422409516-2895a77efded?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1470&q=80",
-      rating: 4.6,
-      description:
-        "Known for Gaudí's architecture, beaches, and vibrant culture.",
-      latitude: 41.3851,
-      longitude: 2.1734,
-    },
-    {
-      id: "p3",
-      name: "Tokyo",
-      country: "Japan",
-      image:
-        "https://images.unsplash.com/photo-1526481280693-3bfa7568e0f3?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1471&q=80",
-      rating: 4.8,
-      description:
-        "A city that blends ultramodern and traditional elements, with great food and shopping.",
-      latitude: 35.6762,
-      longitude: 139.6503,
-    },
-    {
-      id: "p4",
-      name: "London",
-      country: "United Kingdom",
-      image:
-        "https://images.unsplash.com/photo-1534531173927-aeb928d54385?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1470&q=80",
-      rating: 4.5,
-      description:
-        "A historic city with modern attractions, world-class museums, and diverse neighborhoods.",
-      latitude: 51.5074,
-      longitude: -0.1278,
-    },
-    {
-      id: "p5",
-      name: "Bangkok",
-      country: "Thailand",
-      image:
-        "https://images.unsplash.com/photo-1563492065599-3520f775eeed?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1074&q=80",
-      rating: 4.4,
-      description:
-        "A vibrant city with ornate shrines, bustling markets, and exciting street food.",
-      latitude: 13.7563,
-      longitude: 100.5018,
-    },
+    { name: "Paris", latitude: 48.8566, longitude: 2.3522 },
+    { name: "Rome", latitude: 41.9028, longitude: 12.4964 },
+    { name: "New York", latitude: 40.7128, longitude: -74.006 },
+    { name: "Tokyo", latitude: 35.6762, longitude: 139.6503 },
+    { name: "London", latitude: 51.5074, longitude: -0.1278 },
+    { name: "Barcelona", latitude: 41.3851, longitude: 2.1734 },
+    { name: "Sydney", latitude: -33.8688, longitude: 151.2093 },
+    { name: "Dubai", latitude: 25.2048, longitude: 55.2708 },
   ],
   trending: [
-    {
-      id: "t1",
-      name: "Lisbon",
-      country: "Portugal",
-      image:
-        "https://images.unsplash.com/photo-1585208798174-6cedd86ea539?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1473&q=80",
-      rating: 4.6,
-      description:
-        "A coastal city known for its colorful buildings, historic trams, and seafood.",
-      latitude: 38.7223,
-      longitude: -9.1393,
-    },
-    {
-      id: "t2",
-      name: "Seoul",
-      country: "South Korea",
-      image:
-        "https://images.unsplash.com/photo-1538485399081-7c8485c5fbed?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1074&q=80",
-      rating: 4.7,
-      description:
-        "A technologically advanced city with a rich cultural heritage and amazing food.",
-      latitude: 37.5665,
-      longitude: 126.978,
-    },
-    {
-      id: "t3",
-      name: "Mexico City",
-      country: "Mexico",
-      image:
-        "https://images.unsplash.com/photo-1518659526054-190340b15979?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1074&q=80",
-      rating: 4.5,
-      description:
-        "A vibrant metropolis with ancient ruins, colonial architecture, and world-class museums.",
-      latitude: 19.4326,
-      longitude: -99.1332,
-    },
-    {
-      id: "t4",
-      name: "Medellin",
-      country: "Colombia",
-      image:
-        "https://images.unsplash.com/photo-1562577308-9e66f0c65ce5?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1074&q=80",
-      rating: 4.7,
-      description:
-        "Known as the City of Eternal Spring, with a pleasant climate, innovative urban planning, and welcoming atmosphere.",
-      latitude: 6.2476,
-      longitude: -75.5676,
-    },
-    {
-      id: "t5",
-      name: "Istanbul",
-      country: "Turkey",
-      image:
-        "https://images.unsplash.com/photo-1527838832700-5059252407fa?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1598&q=80",
-      rating: 4.6,
-      description:
-        "A city straddling two continents, with amazing architecture, bazaars, and cuisine.",
-      latitude: 41.0082,
-      longitude: 28.9784,
-    },
+    { name: "Lisbon", latitude: 38.7223, longitude: -9.1393 },
+    { name: "Marrakesh", latitude: 31.6295, longitude: -7.9811 },
+    { name: "Seoul", latitude: 37.5665, longitude: 126.978 },
+    { name: "Medellin", latitude: 6.2476, longitude: -75.5676 },
+    { name: "Porto", latitude: 41.1579, longitude: -8.6291 },
+    { name: "Tbilisi", latitude: 41.7151, longitude: 44.8271 },
+    { name: "Mexico City", latitude: 19.4326, longitude: -99.1332 },
+    { name: "Tallinn", latitude: 59.437, longitude: 24.7536 },
   ],
 };
 
@@ -220,14 +55,101 @@ const AllDestinations = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const { type = "featured" } = route.params || {};
 
-  useEffect(() => {
-    // In a real app, you would fetch data from an API here
-    // For now, we'll use our sample data
+  // Fetch places from Google Places API based on location coordinates
+  const fetchPlacesForLocation = async (
+    location,
+    type = "tourist_attraction"
+  ) => {
+    try {
+      const response = await axios.get(
+        `https://maps.googleapis.com/maps/api/place/nearbysearch/json`,
+        {
+          params: {
+            location: `${location.latitude},${location.longitude}`,
+            radius: 50000, // 50km radius
+            type: type,
+            key: googleapis,
+            rankby: "prominence",
+          },
+        }
+      );
+
+      if (response.data.status === "OK" && response.data.results.length > 0) {
+        // Process and return place data
+        return response.data.results.map((place) => ({
+          id: place.place_id,
+          name: place.name,
+          country: extractCountry(place),
+          description: place.vicinity || `Explore ${place.name}`,
+          rating: place.rating || 4.5,
+          image:
+            place.photos && place.photos.length > 0
+              ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${place.photos[0].photo_reference}&key=${googleapis}`
+              : `https://maps.googleapis.com/maps/api/streetview?size=800x800&location=${place.geometry.location.lat},${place.geometry.location.lng}&key=${googleapis}`,
+          latitude: place.geometry.location.lat,
+          longitude: place.geometry.location.lng,
+          priceRange: place.price_level ? "$".repeat(place.price_level) : "$$",
+          trending: calculateTrendingPercentage(),
+          place_details: place,
+        }));
+      }
+      return [];
+    } catch (error) {
+      console.error("Error fetching places:", error);
+      return [];
+    }
+  };
+
+  // Extract country information from place data
+  const extractCountry = (place) => {
+    if (place.plus_code && place.plus_code.compound_code) {
+      const parts = place.plus_code.compound_code.split(",");
+      return parts[parts.length - 1].trim();
+    }
+    // If we can't extract country, fallback to a region name or placeholder
+    return place.vicinity
+      ? place.vicinity.split(",").pop().trim()
+      : "International";
+  };
+
+  // Generate a realistic trending percentage for trending destinations
+  const calculateTrendingPercentage = () => {
+    return `+${Math.floor(Math.random() * 40) + 20}%`;
+  };
+
+  // Fetch all destinations for the specified type
+  const fetchDestinations = async () => {
     setLoading(true);
-    setTimeout(() => {
-      setDestinations(sampleDestinations[type] || []);
+    try {
+      const locations = LOCATIONS_BY_TYPE[type] || LOCATIONS_BY_TYPE.featured;
+
+      // Fetch tourist attractions for each location
+      const promises = locations.map((location) =>
+        fetchPlacesForLocation(location, "tourist_attraction")
+      );
+
+      const results = await Promise.all(promises);
+
+      // Flatten the results and remove duplicates based on place_id
+      const allPlaces = results.flat();
+      const uniquePlaces = Array.from(
+        new Map(allPlaces.map((place) => [place.id, place])).values()
+      );
+
+      setDestinations(uniquePlaces);
+    } catch (error) {
+      console.error("Error fetching destinations:", error);
+      Alert.alert(
+        "Error",
+        "Failed to load destinations. Please check your connection and try again."
+      );
+    } finally {
       setLoading(false);
-    }, 500); // Simulate network delay
+    }
+  };
+
+  useEffect(() => {
+    fetchDestinations();
   }, [type]);
 
   const getTypeTitle = () => {
@@ -334,6 +256,17 @@ const AllDestinations = ({ route, navigation }) => {
           <ActivityIndicator size="large" color="#3498db" />
           <Text style={styles.loadingText}>Loading destinations...</Text>
         </View>
+      ) : destinations.length === 0 ? (
+        <View style={styles.noResultsContainer}>
+          <MaterialIcons name="location-off" size={64} color="#ccc" />
+          <Text style={styles.noResultsText}>No destinations found</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={fetchDestinations}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <FlatList
           data={destinations}
@@ -390,6 +323,30 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 16,
     color: "#666",
+  },
+  noResultsContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  noResultsText: {
+    fontSize: 18,
+    color: "#666",
+    marginTop: 16,
+    textAlign: "center",
+  },
+  retryButton: {
+    marginTop: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: "#3498db",
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
   },
   listContainer: {
     padding: 16,
