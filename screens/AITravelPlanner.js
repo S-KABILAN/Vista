@@ -1070,6 +1070,43 @@ const AITravelPlanner = ({ navigation, route }) => {
                         {attraction.address}
                       </Text>
                     ) : null}
+
+                    <TouchableOpacity
+                      style={styles.attractionAiButton}
+                      onPress={() => {
+                        // Navigate to AITravelPlanner with the selected attraction as destination
+                        navigation.navigate("MainTabs", {
+                          screen: "AITravelPlanner",
+                          params: {
+                            selectedDestination: {
+                              name: attraction.name,
+                              coordinates: {
+                                latitude:
+                                  attraction.geometry?.location?.lat ||
+                                  attraction.latitude ||
+                                  (attraction.coordinates
+                                    ? attraction.coordinates.latitude
+                                    : null),
+                                longitude:
+                                  attraction.geometry?.location?.lng ||
+                                  attraction.longitude ||
+                                  (attraction.coordinates
+                                    ? attraction.coordinates.longitude
+                                    : null),
+                              },
+                              description:
+                                attraction.address || attraction.vicinity || "",
+                              place_details: attraction,
+                            },
+                          },
+                        });
+                      }}
+                    >
+                      <AntDesign name="rocket1" size={14} color="#FFF" />
+                      <Text style={styles.attractionAiButtonText}>
+                        Plan with AI
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
               ))}
@@ -2669,6 +2706,22 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 24,
     fontWeight: "bold",
+  },
+  attractionAiButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#3498db",
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginTop: 10,
+    alignSelf: "flex-start",
+  },
+  attractionAiButtonText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "bold",
+    marginLeft: 5,
   },
 });
 

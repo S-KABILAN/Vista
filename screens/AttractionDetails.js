@@ -413,22 +413,49 @@ const AttractionDetails = ({ route, navigation }) => {
               </View>
             )}
 
-          {/* Plan a Visit Button */}
-          <TouchableOpacity
-            style={styles.visitButton}
-            onPress={() =>
-              navigation.navigate("Globe", {
-                showRoute: true,
-                destination: {
-                  latitude: attractionDetails.latitude,
-                  longitude: attractionDetails.longitude,
-                  name: attractionDetails.name,
-                },
-              })
-            }
-          >
-            <Text style={styles.visitButtonText}>Navigate to Attraction</Text>
-          </TouchableOpacity>
+          {/* Action Buttons */}
+          <View style={styles.buttonContainer}>
+            {/* Plan with AI Button */}
+            <TouchableOpacity
+              style={styles.aiPlanButton}
+              onPress={() =>
+                navigation.navigate("MainTabs", {
+                  screen: "AITravelPlanner",
+                  params: {
+                    selectedDestination: {
+                      name: attractionDetails.name,
+                      coordinates: {
+                        latitude: attractionDetails.latitude,
+                        longitude: attractionDetails.longitude,
+                      },
+                      description: attractionDetails.description,
+                      place_details: attractionDetails,
+                    },
+                  },
+                })
+              }
+            >
+              <AntDesign name="rocket1" size={20} color="#FFF" />
+              <Text style={styles.aiPlanButtonText}>Plan with AI</Text>
+            </TouchableOpacity>
+
+            {/* Navigate Button */}
+            <TouchableOpacity
+              style={styles.visitButton}
+              onPress={() =>
+                navigation.navigate("Globe", {
+                  showRoute: true,
+                  destination: {
+                    latitude: attractionDetails.latitude,
+                    longitude: attractionDetails.longitude,
+                    name: attractionDetails.name,
+                  },
+                })
+              }
+            >
+              <Text style={styles.visitButtonText}>Navigate to Attraction</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -672,12 +699,30 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     borderRadius: 12,
     alignItems: "center",
-    marginTop: 10,
   },
   visitButtonText: {
     color: "white",
     fontSize: 16,
     fontWeight: "600",
+  },
+  buttonContainer: {
+    marginTop: 10,
+    gap: 12,
+  },
+  aiPlanButton: {
+    backgroundColor: "#2980b9",
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 15,
+    borderRadius: 12,
+    marginBottom: 0,
+  },
+  aiPlanButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+    marginLeft: 8,
   },
 });
 
