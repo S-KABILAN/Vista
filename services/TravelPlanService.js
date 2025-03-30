@@ -59,3 +59,55 @@ export const toggleBookmark = async (planId) => {
     throw error.response?.data || error.message;
   }
 };
+
+// Get personalized travel recommendations based on user history
+export const getPersonalizedRecommendations = async () => {
+  try {
+    const response = await axios.get(
+      `${BACKEND_URL}/api/personalized-recommendations`
+    );
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+// Optimize an itinerary for the most efficient order
+export const optimizeItinerary = async (itineraryData) => {
+  try {
+    const response = await axios.post(
+      `${BACKEND_URL}/api/optimize-itinerary`,
+      itineraryData
+    );
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+// Get AI-generated cultural insights for a destination
+export const getCulturalInsights = async (destination) => {
+  try {
+    const response = await axios.get(`${BACKEND_URL}/api/cultural-insights`, {
+      params: { destination },
+    });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};
+
+// Get real-time weather with AI-enhanced recommendations
+export const getWeatherRecommendations = async (destination, tripDates) => {
+  try {
+    const response = await axios.get(
+      `${BACKEND_URL}/api/weather-recommendations`,
+      {
+        params: { destination, ...tripDates },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || error.message;
+  }
+};

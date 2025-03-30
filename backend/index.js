@@ -1941,6 +1941,408 @@ app.use("/api/travel-plans", travelPlanRoutes);
 // Mount hotel routes
 app.use("/api/hotels", hotelRoutes);
 
+// New endpoint for personalized AI travel recommendations based on user history
+app.get("/api/personalized-recommendations", async (req, res) => {
+  try {
+    // Extract user ID from JWT token
+    let userId = null;
+    if (req.headers.authorization) {
+      const token = req.headers.authorization.split(" ")[1];
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        userId = decoded.id;
+      } catch (tokenError) {
+        return res.status(401).json({ error: "Invalid token" });
+      }
+    } else {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    // Get user preferences from database
+    const userModel = mongoose.model("User");
+    const user = await userModel.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Get user's previous travel plans
+    const TravelPlan = mongoose.model("TravelPlan");
+    const userPlans = await TravelPlan.find({ userId });
+
+    // Extract travel patterns and preferences
+    const visitedDestinations = userPlans.map((plan) => plan.destination);
+    const preferredActivities = [];
+    const preferredHotelTypes = [];
+    const budgetHistory = [];
+
+    userPlans.forEach((plan) => {
+      if (plan.budget) budgetHistory.push(plan.budget);
+      if (plan.preferences) {
+        const prefs = plan.preferences.split(",").map((p) => p.trim());
+        preferredActivities.push(...prefs);
+      }
+      if (plan.hotelType) preferredHotelTypes.push(plan.hotelType);
+    });
+
+    // Calculate average budget from history
+    const avgBudget =
+      budgetHistory.length > 0
+        ? Math.round(
+            budgetHistory.reduce((a, b) => a + b, 0) / budgetHistory.length
+          )
+        : 1000;
+
+    // Get most frequent activities
+    const activityFrequency = {};
+    preferredActivities.forEach((activity) => {
+      activityFrequency[activity] = (activityFrequency[activity] || 0) + 1;
+    });
+
+    const topActivities = Object.entries(activityFrequency)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map((entry) => entry[0]);
+
+    // Use Gemini API to generate personalized recommendations
+    const genAIClient = new GoogleGenerativeAI(API_KEY);
+    const model = genAIClient.getGenerativeModel({
+      model: "gemini-1.5-flash",
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 1024,
+      },
+    });
+
+    const promptText = `Based on this user's travel history and preferences, recommend 5 new destinations they might enjoy visiting.
+
+User Profile:
+- Previously visited: ${visitedDestinations.join(", ") || "No previous trips"}
+- Preferred activities: ${topActivities.join(", ") || "No clear preferences"}
+- Average budget: $${avgBudget}
+- Preferred hotel types: ${preferredHotelTypes.join(", ") || "No preference"}
+
+For each recommended destination, please provide:
+1. Destination name
+2. Country
+3. Why this matches their preferences (based on their history)
+4. Best time to visit
+5. Estimated budget range
+6. Top 3 activities they would enjoy based on their preferences
+7. A suggested hotel that matches their typical preferences
+
+Format the response as structured data that can be parsed as JSON.`;
+
+    console.log(
+      "Sending personalized recommendations request to Gemini API..."
+    );
+
+    const result = await model.generateContent(promptText);
+    const response = await result.response;
+    const text = response.text();
+
+    // Parse the AI response into a structured format
+    const recommendationsText = text.replace(/```json|```/g, "").trim();
+    let recommendations;
+
+    try {
+      recommendations = JSON.parse(recommendationsText);
+    } catch (parseError) {
+      console.error("Error parsing AI response:", parseError);
+      recommendations = {
+        destinations: [
+          {
+            name: "Paris",
+            country: "France",
+            reason: "Based on your interests in cultural activities",
+            bestTimeToVisit: "April to June, September to October",
+            budgetRange: "$1,500-$3,000",
+            recommendedActivities: [
+              "Louvre Museum",
+              "Eiffel Tower",
+              "Seine River Cruise",
+            ],
+            suggestedHotel: "Hotel du Louvre",
+          },
+        ],
+      };
+    }
+
+    res.json({
+      personalizedRecommendations: recommendations,
+      userPreferences: {
+        visitedDestinations,
+        topActivities,
+        avgBudget,
+        preferredHotelTypes,
+      },
+    });
+  } catch (error) {
+    console.error("Error generating personalized recommendations:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to generate personalized recommendations" });
+  }
+});
+
+// AI-powered itinerary optimization endpoint
+app.post("/api/optimize-itinerary", async (req, res) => {
+  try {
+    const { itinerary, startingPoint, transportationType } = req.body;
+
+    if (!itinerary || !Array.isArray(itinerary) || itinerary.length === 0) {
+      return res
+        .status(400)
+        .json({ error: "Valid itinerary array is required" });
+    }
+
+    console.log("Received optimization request:", {
+      itemCount: itinerary.length,
+      startingPoint,
+      transportationType,
+    });
+
+    // Create distance matrix using coordinates
+    const distanceMatrix = [];
+    const allPoints = startingPoint
+      ? [startingPoint, ...itinerary]
+      : [...itinerary];
+
+    // Calculate distance between each point
+    for (let i = 0; i < allPoints.length; i++) {
+      const row = [];
+      for (let j = 0; j < allPoints.length; j++) {
+        if (i === j) {
+          row.push(0); // Distance to self is 0
+        } else {
+          // Calculate distance between two coordinates
+          const point1 = allPoints[i];
+          const point2 = allPoints[j];
+
+          if (point1.location && point2.location) {
+            const lat1 = parseFloat(point1.location.lat);
+            const lng1 = parseFloat(point1.location.lng);
+            const lat2 = parseFloat(point2.location.lat);
+            const lng2 = parseFloat(point2.location.lng);
+
+            // Calculate distance using Haversine formula
+            const R = 6371; // Earth radius in km
+            const dLat = ((lat2 - lat1) * Math.PI) / 180;
+            const dLng = ((lng2 - lng1) * Math.PI) / 180;
+            const a =
+              Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos((lat1 * Math.PI) / 180) *
+                Math.cos((lat2 * Math.PI) / 180) *
+                Math.sin(dLng / 2) *
+                Math.sin(dLng / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            const distance = R * c;
+
+            row.push(distance);
+          } else {
+            row.push(0); // Default if coordinates are missing
+          }
+        }
+      }
+      distanceMatrix.push(row);
+    }
+
+    // Use AI to optimize the itinerary based on the distance matrix
+    const genAIClient = new GoogleGenerativeAI(API_KEY);
+    const model = genAIClient.getGenerativeModel({
+      model: "gemini-1.5-flash",
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 1024,
+      },
+    });
+
+    // Prepare simplified place names for prompt
+    const placeNames = itinerary
+      .map((item, index) => `${index + 1}. ${item.name}`)
+      .join("\n");
+
+    // Create transportation context
+    let transportContext = "";
+    switch (transportationType) {
+      case "walking":
+        transportContext = "The traveler will be walking between locations.";
+        break;
+      case "public":
+        transportContext = "The traveler will be using public transportation.";
+        break;
+      case "driving":
+        transportContext = "The traveler will be driving between locations.";
+        break;
+      default:
+        transportContext =
+          "The traveler will be using mixed transportation methods.";
+    }
+
+    const promptText = `I need to optimize a travel itinerary to minimize travel time and make the most efficient route.
+
+PLACES TO VISIT:
+${placeNames}
+
+TRANSPORTATION CONTEXT:
+${transportContext}
+
+${startingPoint ? `STARTING POINT: ${startingPoint.name}` : ""}
+
+The distance matrix between points (in kilometers) is:
+${JSON.stringify(distanceMatrix)}
+
+Please analyze this data and provide:
+1. An optimized order to visit these places that minimizes total travel distance
+2. The estimated travel time between each place (based on ${
+      transportationType || "general"
+    } transportation)
+3. A brief explanation for why this order is optimal
+
+Return your response as a JSON object with the following structure:
+{
+  "optimizedItinerary": [
+    {"index": original_index, "name": "Place Name"},
+    ...
+  ],
+  "totalDistance": total_distance_in_km,
+  "estimatedTimes": [
+    {"from": "Place A", "to": "Place B", "time": "XX minutes"},
+    ...
+  ],
+  "explanation": "Explanation of the optimization"
+}`;
+
+    console.log("Sending itinerary optimization request to AI...");
+
+    const result = await model.generateContent(promptText);
+    const response = await result.response;
+    const text = response.text();
+
+    // Parse the AI response
+    const optimizationText = text.replace(/```json|```/g, "").trim();
+    let optimization;
+
+    try {
+      optimization = JSON.parse(optimizationText);
+    } catch (parseError) {
+      console.error("Error parsing AI optimization response:", parseError);
+
+      // If parsing fails, create a simple greedy algorithm fallback
+      const startIndex = startingPoint ? 0 : -1;
+      const visited = startingPoint ? [0] : [];
+      const unvisited = startingPoint
+        ? Array.from({ length: allPoints.length - 1 }, (_, i) => i + 1)
+        : Array.from({ length: allPoints.length }, (_, i) => i);
+
+      let currentIndex = startIndex;
+      const optimizedOrder = [];
+
+      while (unvisited.length > 0) {
+        if (currentIndex === -1) {
+          // If no starting point, just pick the first location
+          currentIndex = unvisited.shift();
+          visited.push(currentIndex);
+          optimizedOrder.push({
+            index: startingPoint ? currentIndex - 1 : currentIndex,
+            name: allPoints[currentIndex].name,
+          });
+        } else {
+          // Find the closest unvisited point
+          let minDistance = Infinity;
+          let nextIndex = -1;
+
+          for (const index of unvisited) {
+            const distance = distanceMatrix[currentIndex][index];
+            if (distance < minDistance) {
+              minDistance = distance;
+              nextIndex = index;
+            }
+          }
+
+          // Move to the closest point
+          currentIndex = nextIndex;
+          visited.push(currentIndex);
+          unvisited.splice(unvisited.indexOf(currentIndex), 1);
+
+          optimizedOrder.push({
+            index: startingPoint ? currentIndex - 1 : currentIndex,
+            name: allPoints[currentIndex].name,
+          });
+        }
+      }
+
+      // Calculate total distance
+      let totalDistance = 0;
+      for (let i = 0; i < visited.length - 1; i++) {
+        totalDistance += distanceMatrix[visited[i]][visited[i + 1]];
+      }
+
+      // Create estimated times
+      const estimatedTimes = [];
+      for (let i = 0; i < visited.length - 1; i++) {
+        const from = allPoints[visited[i]];
+        const to = allPoints[visited[i + 1]];
+        const distance = distanceMatrix[visited[i]][visited[i + 1]];
+
+        // Calculate estimated time based on transportation type
+        let timeInMinutes;
+        switch (transportationType) {
+          case "walking":
+            timeInMinutes = Math.round(distance * 12); // ~5 km/h walking speed
+            break;
+          case "public":
+            timeInMinutes = Math.round(distance * 3 + 10); // ~20 km/h with waiting time
+            break;
+          case "driving":
+            timeInMinutes = Math.round(distance * 1.2); // ~50 km/h with traffic
+            break;
+          default:
+            timeInMinutes = Math.round(distance * 2); // general estimate
+        }
+
+        estimatedTimes.push({
+          from: from.name,
+          to: to.name,
+          time: `${timeInMinutes} minutes`,
+        });
+      }
+
+      optimization = {
+        optimizedItinerary: optimizedOrder,
+        totalDistance: Math.round(totalDistance * 10) / 10,
+        estimatedTimes: estimatedTimes,
+        explanation:
+          "Optimized using a greedy nearest-neighbor algorithm to minimize total travel distance.",
+      };
+    }
+
+    // Map the original itinerary items to the optimized order
+    const optimizedItinerary = optimization.optimizedItinerary.map((item) => {
+      const originalIndex = item.index;
+      return {
+        ...itinerary[originalIndex],
+        travelTime: optimization.estimatedTimes.find(
+          (time) => time.to === itinerary[originalIndex].name
+        )?.time,
+      };
+    });
+
+    res.json({
+      originalItinerary: itinerary,
+      optimizedItinerary,
+      optimizationDetails: {
+        totalDistance: optimization.totalDistance,
+        travelTimes: optimization.estimatedTimes,
+        explanation: optimization.explanation,
+      },
+    });
+  } catch (error) {
+    console.error("Error optimizing itinerary:", error);
+    res.status(500).json({ error: "Failed to optimize itinerary" });
+  }
+});
+
 // Start the server
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
@@ -2030,4 +2432,454 @@ async function fetchHotelsFromAmadeus(
     console.error("Error fetching hotels from Amadeus:", error);
     return [];
   }
+}
+
+// AI-generated cultural insights endpoint
+app.get("/api/cultural-insights", async (req, res) => {
+  try {
+    const { destination } = req.query;
+
+    if (!destination) {
+      return res
+        .status(400)
+        .json({ error: "Destination parameter is required" });
+    }
+
+    console.log(`Generating cultural insights for: ${destination}`);
+
+    // Use Gemini API to generate cultural insights
+    const genAIClient = new GoogleGenerativeAI(API_KEY);
+    const model = genAIClient.getGenerativeModel({
+      model: "gemini-1.5-flash",
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 1024,
+      },
+    });
+
+    const promptText = `Generate comprehensive cultural insights for a traveler visiting ${destination}. Include the following sections:
+
+1. Local Customs and Etiquette
+   - Greetings and interactions
+   - Dining etiquette
+   - Tipping customs
+   - Dress code and appropriate attire
+   - Taboos or behaviors to avoid
+
+2. Cultural Context
+   - Brief historical background relevant to tourists
+   - Cultural values and perspectives
+   - Religious considerations and sacred sites
+   - National holidays or festivals during different seasons
+
+3. Communication Tips
+   - Essential local phrases and expressions
+   - Non-verbal communication norms
+   - Communication styles (direct vs. indirect)
+   - Potential misunderstandings to avoid
+
+4. Practical Cultural Tips
+   - Business hours and siesta times if applicable
+   - Photography restrictions
+   - Appropriate behavior at religious sites
+   - Local markets and haggling norms
+
+Format your response in a structured, easy-to-read format suitable for a mobile app. Focus on practical, actionable information that will help travelers be respectful and avoid cultural faux pas.`;
+
+    console.log("Sending cultural insights request to Gemini API...");
+
+    const result = await model.generateContent(promptText);
+    const response = await result.response;
+    const text = response.text();
+
+    // Format the response as structured data
+    const sections = [
+      {
+        title: "Local Customs & Etiquette",
+        content: extractSectionContent(
+          text,
+          "Local Customs and Etiquette",
+          "Cultural Context"
+        ),
+      },
+      {
+        title: "Cultural Context",
+        content: extractSectionContent(
+          text,
+          "Cultural Context",
+          "Communication Tips"
+        ),
+      },
+      {
+        title: "Communication Tips",
+        content: extractSectionContent(
+          text,
+          "Communication Tips",
+          "Practical Cultural Tips"
+        ),
+      },
+      {
+        title: "Practical Tips",
+        content: extractSectionContent(text, "Practical Cultural Tips", null),
+      },
+    ];
+
+    res.json({
+      destination,
+      insightsGenerated: new Date().toISOString(),
+      sections,
+    });
+  } catch (error) {
+    console.error("Error generating cultural insights:", error);
+    res.status(500).json({ error: "Failed to generate cultural insights" });
+  }
+});
+
+// Helper function to extract section content
+function extractSectionContent(text, sectionStart, sectionEnd) {
+  // Find the start of the section
+  const startRegex = new RegExp(`\\d+\\.?\\s*${sectionStart}`, "i");
+  const startMatch = text.match(startRegex);
+  if (!startMatch) return "Content not available";
+
+  const startIndex = startMatch.index + startMatch[0].length;
+
+  // Find the end of the section (next section or end of text)
+  let endIndex;
+  if (sectionEnd) {
+    const endRegex = new RegExp(`\\d+\\.?\\s*${sectionEnd}`, "i");
+    const endMatch = text.match(endRegex);
+    endIndex = endMatch ? endMatch.index : text.length;
+  } else {
+    endIndex = text.length;
+  }
+
+  // Extract the content
+  let content = text.substring(startIndex, endIndex).trim();
+
+  // Format bullet points
+  content = content.replace(/^-\s+/gm, "• ");
+  content = content.replace(/^\s*•\s+/gm, "• ");
+
+  return content;
+}
+
+// AI-enhanced weather recommendations endpoint
+app.get("/api/weather-recommendations", async (req, res) => {
+  try {
+    const { destination, startDate, endDate } = req.query;
+
+    if (!destination) {
+      return res
+        .status(400)
+        .json({ error: "Destination parameter is required" });
+    }
+
+    console.log(`Generating weather recommendations for: ${destination}`);
+
+    // First, get geocoding data for the destination
+    let latitude, longitude;
+    try {
+      const geocodingUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+        destination
+      )}&key=${GOOGLE_PLACES_API_KEY}`;
+      const geocodingResponse = await axios.get(geocodingUrl);
+
+      if (
+        geocodingResponse.data.results &&
+        geocodingResponse.data.results.length > 0
+      ) {
+        const location = geocodingResponse.data.results[0].geometry.location;
+        latitude = location.lat;
+        longitude = location.lng;
+        console.log(
+          `Found coordinates for ${destination}: ${latitude}, ${longitude}`
+        );
+      } else {
+        throw new Error("Could not geocode destination");
+      }
+    } catch (geocodingError) {
+      console.error("Geocoding error:", geocodingError);
+      return res
+        .status(404)
+        .json({ error: "Could not find coordinates for this destination" });
+    }
+
+    // Fetch current weather data
+    let weatherData;
+    try {
+      // Note: You would need to use a real weather API key here
+      // For this example, we'll use a free OpenWeatherMap API key placeholder
+      const WEATHER_API_KEY =
+        process.env.WEATHER_API_KEY || "your_openweathermap_api_key";
+      const weatherUrl = `https://api.openweathermap.org/data/2.5/forecast?lat=${latitude}&lon=${longitude}&appid=${WEATHER_API_KEY}&units=metric`;
+
+      // Simulate weather API response for demo purposes
+      // In a real app, you would uncomment this:
+      // const weatherResponse = await axios.get(weatherUrl);
+      // weatherData = weatherResponse.data;
+
+      // For demo, generate simulated weather data
+      weatherData = generateSimulatedWeatherData(
+        destination,
+        startDate,
+        endDate
+      );
+    } catch (weatherError) {
+      console.error("Weather API error:", weatherError);
+      return res.status(500).json({ error: "Could not retrieve weather data" });
+    }
+
+    // Use Gemini API to generate weather-based recommendations
+    const genAIClient = new GoogleGenerativeAI(API_KEY);
+    const model = genAIClient.getGenerativeModel({
+      model: "gemini-1.5-flash",
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 1024,
+      },
+    });
+
+    const promptText = `You are an AI travel assistant helping a traveler plan their trip to ${destination}${
+      startDate ? ` from ${startDate}${endDate ? ` to ${endDate}` : ""}` : ""
+    }.
+
+Here is the weather forecast for this destination:
+${JSON.stringify(weatherData, null, 2)}
+
+Based on this weather data, please provide:
+
+1. Weather Summary
+   - Overview of expected weather conditions during the travel period
+   - Temperature ranges and precipitation expectations
+   - Any notable weather patterns or events to be aware of
+
+2. Packing Recommendations
+   - Essential clothing items based on the forecast
+   - Weather-specific gear that might be needed
+   - Items that might not be necessary to bring
+
+3. Activity Recommendations
+   - Best outdoor activities for the forecasted weather
+   - Alternative indoor activities for bad weather days
+   - How to optimize the itinerary based on expected weather patterns
+
+4. Weather-Related Travel Tips
+   - Best times of day for outdoor activities
+   - Transportation considerations
+   - Safety precautions if applicable
+
+Format your response as practical, actionable advice that a traveler could use to plan their trip. Be specific to the destination and the forecasted weather conditions.`;
+
+    console.log("Sending weather recommendations request to Gemini API...");
+
+    const result = await model.generateContent(promptText);
+    const response = await result.response;
+    const text = response.text();
+
+    // Format the response as structured data
+    const sections = [
+      {
+        title: "Weather Summary",
+        content: extractSectionContent(
+          text,
+          "Weather Summary",
+          "Packing Recommendations"
+        ),
+        icon: "cloud",
+      },
+      {
+        title: "Packing Recommendations",
+        content: extractSectionContent(
+          text,
+          "Packing Recommendations",
+          "Activity Recommendations"
+        ),
+        icon: "suitcase",
+      },
+      {
+        title: "Activity Recommendations",
+        content: extractSectionContent(
+          text,
+          "Activity Recommendations",
+          "Weather-Related Travel Tips"
+        ),
+        icon: "calendar",
+      },
+      {
+        title: "Weather-Related Travel Tips",
+        content: extractSectionContent(
+          text,
+          "Weather-Related Travel Tips",
+          null
+        ),
+        icon: "umbrella",
+      },
+    ];
+
+    res.json({
+      destination,
+      weatherData: weatherData.forecast,
+      forecastGenerated: new Date().toISOString(),
+      recommendations: sections,
+    });
+  } catch (error) {
+    console.error("Error generating weather recommendations:", error);
+    res
+      .status(500)
+      .json({ error: "Failed to generate weather recommendations" });
+  }
+});
+
+// Helper function to generate simulated weather data
+function generateSimulatedWeatherData(destination, startDateStr, endDateStr) {
+  // Parse date range or use next 5 days if not provided
+  const today = new Date();
+  let startDate = startDateStr ? new Date(startDateStr) : new Date();
+  let endDate = endDateStr ? new Date(endDateStr) : new Date();
+
+  // If invalid dates, default to next 5 days
+  if (isNaN(startDate.getTime())) startDate = today;
+  if (isNaN(endDate.getTime()) || endDate < startDate) {
+    endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 5);
+  }
+
+  // Generate season based on destination and current month
+  const month = today.getMonth();
+  let season;
+  let isNorthernHemisphere = true; // Default to northern hemisphere
+
+  // Check if destination is likely in southern hemisphere
+  const southernKeywords = [
+    "australia",
+    "new zealand",
+    "argentina",
+    "chile",
+    "south africa",
+    "brazil",
+    "peru",
+    "uruguay",
+    "paraguay",
+    "bolivia",
+    "antarctica",
+  ];
+
+  if (
+    southernKeywords.some((keyword) =>
+      destination.toLowerCase().includes(keyword)
+    )
+  ) {
+    isNorthernHemisphere = false;
+  }
+
+  if (isNorthernHemisphere) {
+    if (month >= 2 && month <= 4) season = "spring";
+    else if (month >= 5 && month <= 7) season = "summer";
+    else if (month >= 8 && month <= 10) season = "fall";
+    else season = "winter";
+  } else {
+    if (month >= 2 && month <= 4) season = "fall";
+    else if (month >= 5 && month <= 7) season = "winter";
+    else if (month >= 8 && month <= 10) season = "spring";
+    else season = "summer";
+  }
+
+  // Create base temperature and conditions based on season and randomization
+  let baseTemp, rainProbability, conditions;
+  switch (season) {
+    case "winter":
+      baseTemp = isNorthernHemisphere
+        ? Math.floor(Math.random() * 10)
+        : Math.floor(Math.random() * 15) + 15;
+      rainProbability = Math.random() * 0.6;
+      conditions = [
+        "Clear",
+        "Cloudy",
+        "Partly Cloudy",
+        "Snow",
+        "Rain",
+        "Sleet",
+      ];
+      break;
+    case "spring":
+      baseTemp = isNorthernHemisphere
+        ? Math.floor(Math.random() * 10) + 10
+        : Math.floor(Math.random() * 10) + 5;
+      rainProbability = Math.random() * 0.5 + 0.3;
+      conditions = ["Clear", "Cloudy", "Partly Cloudy", "Rain", "Light Rain"];
+      break;
+    case "summer":
+      baseTemp = isNorthernHemisphere
+        ? Math.floor(Math.random() * 15) + 20
+        : Math.floor(Math.random() * 10) + 10;
+      rainProbability = Math.random() * 0.3;
+      conditions = ["Clear", "Sunny", "Partly Cloudy", "Thunderstorm"];
+      break;
+    case "fall":
+      baseTemp = isNorthernHemisphere
+        ? Math.floor(Math.random() * 10) + 10
+        : Math.floor(Math.random() * 10) + 15;
+      rainProbability = Math.random() * 0.6 + 0.1;
+      conditions = [
+        "Clear",
+        "Cloudy",
+        "Partly Cloudy",
+        "Rain",
+        "Light Rain",
+        "Fog",
+      ];
+      break;
+  }
+
+  // Generate forecast for each day
+  const forecast = [];
+  let currentDate = new Date(startDate);
+
+  while (currentDate <= endDate) {
+    // Add daily temperature fluctuation
+    const dailyVariation = Math.random() * 4 - 2;
+    const dayTemp = baseTemp + dailyVariation + Math.random() * 5;
+    const nightTemp = dayTemp - (5 + Math.random() * 5);
+
+    // Determine if it will rain
+    const willRain = Math.random() < rainProbability;
+
+    // Select a random condition, with higher probability for rain if willRain is true
+    let condition;
+    if (willRain) {
+      const rainConditions = conditions.filter(
+        (c) => c.includes("Rain") || c.includes("Snow") || c === "Thunderstorm"
+      );
+      condition =
+        rainConditions[Math.floor(Math.random() * rainConditions.length)];
+    } else {
+      const dryConditions = conditions.filter(
+        (c) =>
+          !c.includes("Rain") && !c.includes("Snow") && c !== "Thunderstorm"
+      );
+      condition =
+        dryConditions[Math.floor(Math.random() * dryConditions.length)];
+    }
+
+    forecast.push({
+      date: currentDate.toISOString().split("T")[0],
+      highTemp: Math.round(dayTemp),
+      lowTemp: Math.round(nightTemp),
+      condition: condition,
+      precipitation: willRain ? Math.round(Math.random() * 80) : 0,
+      humidity: Math.round(Math.random() * 30 + 50),
+      windSpeed: Math.round(Math.random() * 20),
+    });
+
+    // Move to next day
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  return {
+    location: destination,
+    forecast: forecast,
+    season: season,
+    hemisphere: isNorthernHemisphere ? "Northern" : "Southern",
+  };
 }

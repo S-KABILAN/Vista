@@ -1134,6 +1134,75 @@ const AITravelPlanner = ({ navigation, route }) => {
 
         {/* Transport section */}
         {renderTransportSection()}
+
+        {/* New AI features buttons */}
+        <View style={styles.aiToolsContainer}>
+          <Text style={styles.aiToolsTitle}>AI Travel Tools</Text>
+          <View style={styles.aiToolsButtonsRow}>
+            <TouchableOpacity
+              style={styles.aiToolButton}
+              onPress={() =>
+                navigation.navigate("CulturalInsights", {
+                  destination: plan.destination,
+                })
+              }
+            >
+              <FontAwesome5 name="globe-americas" size={20} color="#fff" />
+              <Text style={styles.aiToolButtonText}>Cultural Insights</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.aiToolButton}
+              onPress={() =>
+                navigation.navigate("WeatherInsights", {
+                  destination: plan.destination,
+                  startDate: checkInDate,
+                  endDate: checkOutDate,
+                })
+              }
+            >
+              <FontAwesome5 name="cloud-sun" size={20} color="#fff" />
+              <Text style={styles.aiToolButtonText}>Weather</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.aiToolsButtonsRow}>
+            <TouchableOpacity
+              style={styles.aiToolButton}
+              onPress={() => navigation.navigate("PersonalizedRecommendations")}
+            >
+              <FontAwesome5 name="user-check" size={20} color="#fff" />
+              <Text style={styles.aiToolButtonText}>For You</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.aiToolButton}
+              onPress={() => {
+                if (plan.attractions && plan.attractions.length >= 2) {
+                  navigation.navigate("ItineraryOptimizer", {
+                    itinerary: plan.attractions,
+                    destination: plan.destination,
+                  });
+                } else {
+                  Alert.alert(
+                    "Not Enough Places",
+                    "You need at least 2 attractions to optimize an itinerary."
+                  );
+                }
+              }}
+            >
+              <FontAwesome5 name="route" size={20} color="#fff" />
+              <Text style={styles.aiToolButtonText}>Optimize Route</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Welcome message */}
+        <View style={styles.welcomeCard}>
+          <Text style={styles.welcomeHeadline}>
+            Welcome to {plan.destination}!
+          </Text>
+          <Text style={styles.welcomeText}>{plan.summary}</Text>
+        </View>
       </ScrollView>
     );
   };
@@ -2515,6 +2584,88 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "bold",
     fontSize: 14,
+  },
+  aiToolsContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    marginBottom: 16,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  aiToolsTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    marginBottom: 12,
+    color: "#333",
+  },
+  aiToolsButtonsRow: {
+    flexDirection: "row",
+    marginBottom: 8,
+  },
+  aiToolButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#4c669f",
+    padding: 12,
+    borderRadius: 8,
+    marginHorizontal: 4,
+  },
+  aiToolButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    marginLeft: 8,
+  },
+  welcomeCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  welcomeHeadline: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 8,
+    color: "#333",
+  },
+  welcomeText: {
+    fontSize: 14,
+    color: "#666",
+  },
+  destinationImageContainer: {
+    position: "relative",
+    marginBottom: 16,
+  },
+  destinationImage: {
+    width: "100%",
+    height: 200,
+    borderRadius: 10,
+  },
+  destinationImageOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  destinationImageText: {
+    color: "#FFFFFF",
+    fontSize: 24,
+    fontWeight: "bold",
   },
 });
 

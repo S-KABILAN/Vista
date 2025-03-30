@@ -25,6 +25,12 @@ import AllAttractions from "../screens/AllAttractions";
 import TransportOptions from "../screens/TransportOptions";
 import AllDestinations from "../screens/AllDestinations";
 
+// Import our new AI feature screens
+import PersonalizedRecommendations from "../screens/PersonalizedRecommendations";
+import CulturalInsights from "../screens/CulturalInsights";
+import ItineraryOptimizer from "../screens/ItineraryOptimizer";
+import WeatherInsights from "../screens/WeatherInsights";
+
 // Import custom bottom navigation
 import BottomNavigation from "../components/BottomNavigation";
 
@@ -108,6 +114,29 @@ const AppNavigation = () => {
           component={AllDestinations}
           options={{ headerShown: false }}
         />
+
+        {/* New AI feature screens */}
+        <Stack.Screen
+          name="PersonalizedRecommendations"
+          component={PersonalizedRecommendations}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="CulturalInsights"
+          component={CulturalInsights}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="ItineraryOptimizer"
+          component={ItineraryOptimizer}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="WeatherInsights"
+          component={WeatherInsights}
+          options={{ headerShown: false }}
+        />
+
         {/* Keep these commented out until they're implemented */}
         {/* <Stack.Screen name="TripDetails" component={TripDetails} /> */}
         {/* <Stack.Screen name="AllTrips" component={AllTrips} /> */}
