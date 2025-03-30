@@ -23,6 +23,7 @@ import * as FlightService from "../services/FlightService";
 import * as LocationService from "../services/LocationService";
 import FlightCard from "../components/FlightCard";
 import { format } from "date-fns";
+import * as TransportService from "../services/TransportService";
 
 const TransportOptions = ({ route, navigation }) => {
   const { origin, destination, departureDate: userDate } = route.params;
@@ -34,6 +35,11 @@ const TransportOptions = ({ route, navigation }) => {
   const [selectedFlight, setSelectedFlight] = useState(null);
   const [drivingInfo, setDrivingInfo] = useState(null);
   const [error, setError] = useState(null);
+  const [flightOptions, setFlightOptions] = useState([]);
+  const [trainOptions, setTrainOptions] = useState([]);
+  const [busOptions, setBusOptions] = useState([]);
+  const [drivingOption, setDrivingOption] = useState(null);
+  const [activeTransportType, setActiveTransportType] = useState("flights"); // Default tab
 
   // Format departure date for API
   const departureDate = userDate
@@ -103,6 +109,9 @@ const TransportOptions = ({ route, navigation }) => {
           // Generate mock flights for demo if API call fails
           generateMockFlights(originCity, destCity);
         }
+
+        // Fetch all transportation options
+        fetchTransportationOptions();
       } catch (err) {
         console.error("Error loading transport options:", err);
         setError(err.message || "Error fetching transportation options");
@@ -119,6 +128,44 @@ const TransportOptions = ({ route, navigation }) => {
 
     loadTransportOptions();
   }, [origin, destination]);
+
+  const fetchTransportationOptions = async () => {
+    setLoading(true);
+    try {
+      // Fetch flights using Amadeus API
+      const flights = await TransportService.getFlightOptions(
+        origin,
+        destination
+      );
+      setFlightOptions(flights);
+
+      // Fetch train options if available in your API
+      const trains = await TransportService.getTrainOptions(
+        origin,
+        destination
+      );
+      setTrainOptions(trains);
+
+      // Fetch bus options if available
+      const buses = await TransportService.getBusOptions(origin, destination);
+      setBusOptions(buses);
+
+      // Calculate driving route
+      const driving = await TransportService.getDrivingRoute(
+        origin,
+        destination
+      );
+      setDrivingOption(driving);
+    } catch (error) {
+      console.error("Error fetching transportation options:", error);
+      Alert.alert(
+        "Error",
+        "Failed to load some transportation options. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Generate mock flights for demo purposes if the API fails
   const generateMockFlights = (originCity, destCity) => {
@@ -222,9 +269,27 @@ const TransportOptions = ({ route, navigation }) => {
   };
 
   const handleContinue = () => {
-    // If flight is selected, check if a flight is chosen
-    if (selectedTransport === "flight" && !selectedFlight) {
-      Alert.alert("Select a Flight", "Please select a flight to continue.");
+    let transportDetails;
+
+    // Determine which transport is selected and get the corresponding details
+    if (activeTransportType === "flights") {
+      if (!selectedFlight) {
+        Alert.alert("Select a Flight", "Please select a flight to continue.");
+        return;
+      }
+      transportDetails = selectedFlight;
+    } else if (activeTransportType === "trains") {
+      // For train, we would need a selected train
+      // This is a simplified example
+      transportDetails = trainOptions[0];
+    } else if (activeTransportType === "buses") {
+      // For bus, we would need a selected bus
+      // This is a simplified example
+      transportDetails = busOptions[0];
+    } else if (activeTransportType === "driving") {
+      transportDetails = drivingOption || drivingInfo;
+    } else {
+      Alert.alert("Select Transport", "Please select a transportation option.");
       return;
     }
 
@@ -233,28 +298,31 @@ const TransportOptions = ({ route, navigation }) => {
       screen: "AITravelPlanner",
       params: {
         transportSelected: true,
-        transportType: selectedTransport,
-        transportDetails:
-          selectedTransport === "flight" ? selectedFlight : drivingInfo,
+        transportType:
+          activeTransportType === "flights" ? "flight" : activeTransportType,
+        transportDetails: transportDetails,
       },
     });
   };
 
-  const renderTransportTypeTabs = () => (
+  const renderTransportTabs = () => (
     <View style={styles.tabContainer}>
       <TouchableOpacity
-        style={[styles.tab, selectedTransport === "flight" && styles.activeTab]}
-        onPress={() => setSelectedTransport("flight")}
+        style={[
+          styles.tab,
+          activeTransportType === "flights" && styles.activeTab,
+        ]}
+        onPress={() => setActiveTransportType("flights")}
       >
-        <FontAwesome5
-          name="plane"
-          size={18}
-          color={selectedTransport === "flight" ? "#4285F4" : "#757575"}
+        <Ionicons
+          name="airplane"
+          size={20}
+          color={activeTransportType === "flights" ? "#3498db" : "#666"}
         />
         <Text
           style={[
             styles.tabText,
-            selectedTransport === "flight" && styles.activeTabText,
+            activeTransportType === "flights" && styles.activeTabText,
           ]}
         >
           Flights
@@ -262,18 +330,65 @@ const TransportOptions = ({ route, navigation }) => {
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.tab, selectedTransport === "car" && styles.activeTab]}
-        onPress={() => setSelectedTransport("car")}
+        style={[
+          styles.tab,
+          activeTransportType === "trains" && styles.activeTab,
+        ]}
+        onPress={() => setActiveTransportType("trains")}
       >
-        <FontAwesome5
-          name="car"
-          size={18}
-          color={selectedTransport === "car" ? "#4285F4" : "#757575"}
+        <Ionicons
+          name="train"
+          size={20}
+          color={activeTransportType === "trains" ? "#3498db" : "#666"}
         />
         <Text
           style={[
             styles.tabText,
-            selectedTransport === "car" && styles.activeTabText,
+            activeTransportType === "trains" && styles.activeTabText,
+          ]}
+        >
+          Trains
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[
+          styles.tab,
+          activeTransportType === "buses" && styles.activeTab,
+        ]}
+        onPress={() => setActiveTransportType("buses")}
+      >
+        <Ionicons
+          name="bus"
+          size={20}
+          color={activeTransportType === "buses" ? "#3498db" : "#666"}
+        />
+        <Text
+          style={[
+            styles.tabText,
+            activeTransportType === "buses" && styles.activeTabText,
+          ]}
+        >
+          Buses
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[
+          styles.tab,
+          activeTransportType === "driving" && styles.activeTab,
+        ]}
+        onPress={() => setActiveTransportType("driving")}
+      >
+        <Ionicons
+          name="car"
+          size={20}
+          color={activeTransportType === "driving" ? "#3498db" : "#666"}
+        />
+        <Text
+          style={[
+            styles.tabText,
+            activeTransportType === "driving" && styles.activeTabText,
           ]}
         >
           Driving
@@ -416,7 +531,7 @@ const TransportOptions = ({ route, navigation }) => {
             <View style={styles.locationContainer}>
               <View style={styles.locationDot} />
               <Text style={styles.locationText}>
-                {originAddress?.city || "Current Location"}
+                {origin?.name || originAddress?.city || "Current Location"}
               </Text>
             </View>
 
@@ -445,13 +560,155 @@ const TransportOptions = ({ route, navigation }) => {
       </View>
 
       {/* Transport Type Tabs */}
-      {renderTransportTypeTabs()}
+      {renderTransportTabs()}
 
       {/* Transport Options */}
       <View style={styles.optionsContainer}>
-        {selectedTransport === "flight"
-          ? renderFlightOptions()
-          : renderDrivingOption()}
+        {activeTransportType === "flights" &&
+          (flightOptions.length > 0 ? (
+            renderFlightOptions()
+          ) : (
+            <View style={styles.emptyContainer}>
+              <MaterialIcons name="flight-takeoff" size={48} color="#BDBDBD" />
+              <Text style={styles.emptyText}>
+                No flights found for this route
+              </Text>
+            </View>
+          ))}
+
+        {activeTransportType === "trains" &&
+          (trainOptions.length > 0 ? (
+            <FlatList
+              data={trainOptions}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <View style={styles.transportCard}>
+                  <View style={styles.transportCardHeader}>
+                    <View>
+                      <Text style={styles.transportOperator}>
+                        {item.operator}
+                      </Text>
+                      <Text style={styles.transportRoute}>
+                        {item.departureCity} to {item.arrivalCity}
+                      </Text>
+                    </View>
+                    <Text style={styles.transportPrice}>${item.price}</Text>
+                  </View>
+
+                  <View style={styles.transportTimes}>
+                    <View style={styles.transportTimeColumn}>
+                      <Text style={styles.transportTime}>
+                        {item.departureTime}
+                      </Text>
+                      <Text style={styles.transportStation}>
+                        {item.departureStation}
+                      </Text>
+                    </View>
+
+                    <View style={styles.transportDurationContainer}>
+                      <View style={styles.transportDurationLine} />
+                      <Text style={styles.transportDuration}>
+                        {item.duration}
+                      </Text>
+                    </View>
+
+                    <View style={styles.transportTimeColumn}>
+                      <Text style={styles.transportTime}>
+                        {item.arrivalTime}
+                      </Text>
+                      <Text style={styles.transportStation}>
+                        {item.arrivalStation}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.selectTransportButton}
+                    onPress={() => setSelectedTransport("train")}
+                  >
+                    <Text style={styles.selectTransportText}>Select</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              contentContainerStyle={styles.transportList}
+              showsVerticalScrollIndicator={false}
+            />
+          ) : (
+            <View style={styles.emptyContainer}>
+              <MaterialIcons name="train" size={48} color="#BDBDBD" />
+              <Text style={styles.emptyText}>
+                No trains available for this route
+              </Text>
+            </View>
+          ))}
+
+        {activeTransportType === "buses" &&
+          (busOptions.length > 0 ? (
+            <FlatList
+              data={busOptions}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <View style={styles.transportCard}>
+                  <View style={styles.transportCardHeader}>
+                    <View>
+                      <Text style={styles.transportOperator}>
+                        {item.operator}
+                      </Text>
+                      <Text style={styles.transportRoute}>
+                        {item.departureCity} to {item.arrivalCity}
+                      </Text>
+                    </View>
+                    <Text style={styles.transportPrice}>${item.price}</Text>
+                  </View>
+
+                  <View style={styles.transportTimes}>
+                    <View style={styles.transportTimeColumn}>
+                      <Text style={styles.transportTime}>
+                        {item.departureTime}
+                      </Text>
+                      <Text style={styles.transportStation}>
+                        {item.departureStation}
+                      </Text>
+                    </View>
+
+                    <View style={styles.transportDurationContainer}>
+                      <View style={styles.transportDurationLine} />
+                      <Text style={styles.transportDuration}>
+                        {item.duration}
+                      </Text>
+                    </View>
+
+                    <View style={styles.transportTimeColumn}>
+                      <Text style={styles.transportTime}>
+                        {item.arrivalTime}
+                      </Text>
+                      <Text style={styles.transportStation}>
+                        {item.arrivalStation}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.selectTransportButton}
+                    onPress={() => setSelectedTransport("bus")}
+                  >
+                    <Text style={styles.selectTransportText}>Select</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              contentContainerStyle={styles.transportList}
+              showsVerticalScrollIndicator={false}
+            />
+          ) : (
+            <View style={styles.emptyContainer}>
+              <MaterialIcons name="directions-bus" size={48} color="#BDBDBD" />
+              <Text style={styles.emptyText}>
+                No buses available for this route
+              </Text>
+            </View>
+          ))}
+
+        {activeTransportType === "driving" && renderDrivingOption()}
       </View>
 
       {/* Bottom Button */}
@@ -705,6 +962,89 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     marginRight: 8,
+  },
+  transportCard: {
+    backgroundColor: "#FFF",
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 15,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  transportCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  transportOperator: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  transportRoute: {
+    fontSize: 16,
+    color: "#757575",
+  },
+  transportPrice: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#4285F4",
+  },
+  transportTimes: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  transportTimeColumn: {
+    flexDirection: "column",
+    alignItems: "center",
+  },
+  transportTime: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  transportStation: {
+    fontSize: 14,
+    color: "#757575",
+  },
+  transportDurationContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginHorizontal: 10,
+  },
+  transportDurationLine: {
+    height: 1,
+    width: "100%",
+    backgroundColor: "#e0e0e0",
+    position: "absolute",
+  },
+  transportDuration: {
+    fontSize: 14,
+    color: "#757575",
+    backgroundColor: "#fff",
+    paddingHorizontal: 8,
+  },
+  selectTransportButton: {
+    backgroundColor: "#4285F4",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  selectTransportText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  transportList: {
+    paddingVertical: 10,
   },
 });
 

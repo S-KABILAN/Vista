@@ -46,6 +46,8 @@ const AITravelPlannerWrapper = ({ route, navigation }) => {
 const AITravelPlanner = ({ navigation, route }) => {
   const { user } = useAuth();
   const [destination, setDestination] = useState("");
+  const [startingLocation, setStartingLocation] = useState("");
+  const [startingLocationCoords, setStartingLocationCoords] = useState(null);
   const [budget, setBudget] = useState("1000");
   const [tripDuration, setTripDuration] = useState("5");
   const [preferences, setPreferences] = useState("");
@@ -85,8 +87,20 @@ const AITravelPlanner = ({ navigation, route }) => {
     if (route?.params?.selectedLocation) {
       const location = route.params.selectedLocation;
       console.log("Received location:", location);
-      setDestination(location.city);
-      setSelectedLocation(location);
+
+      // Determine if this is a starting location or destination
+      if (route?.params?.isStartingLocation) {
+        setStartingLocation(
+          location.city || location.name || location.description
+        );
+        setStartingLocationCoords({
+          latitude: location.coordinates?.latitude || location.latitude,
+          longitude: location.coordinates?.longitude || location.longitude,
+        });
+      } else {
+        setDestination(location.city || location.name || location.description);
+        setSelectedLocation(location);
+      }
     }
 
     // Handle transport selection from TransportOptions screen
@@ -112,13 +126,28 @@ const AITravelPlanner = ({ navigation, route }) => {
       try {
         const location = await LocationService.getCurrentLocation();
         setUserLocation(location);
+        setStartingLocationCoords(location);
+
+        // Get address for starting location
+        const address = await LocationService.getAddressFromCoordinates(
+          location.latitude,
+          location.longitude
+        );
+        if (address) {
+          setStartingLocation(address.formattedAddress || "Current Location");
+        } else {
+          setStartingLocation("Current Location");
+        }
       } catch (error) {
         console.error("Error getting user location:", error);
         // Fallback to a default location (New York)
-        setUserLocation({
+        const defaultLocation = {
           latitude: 40.7128,
           longitude: -74.006,
-        });
+        };
+        setUserLocation(defaultLocation);
+        setStartingLocationCoords(defaultLocation);
+        setStartingLocation("New York, USA");
       }
     };
 
@@ -237,6 +266,7 @@ const AITravelPlanner = ({ navigation, route }) => {
         selectedDestination ? selectedDestination.description : destination
       );
       console.log("With parameters:", {
+        startingLocation,
         budget,
         tripDuration,
         preferences,
@@ -247,6 +277,8 @@ const AITravelPlanner = ({ navigation, route }) => {
         destination: selectedDestination
           ? selectedDestination.mainText || selectedDestination.name
           : destination,
+        startingLocation: startingLocation || "Current Location",
+        startingLocationCoords: startingLocationCoords || userLocation,
         budget,
         tripDuration,
         preferences,
@@ -537,12 +569,57 @@ const AITravelPlanner = ({ navigation, route }) => {
   const renderDestinationStep = () => {
     return (
       <View style={styles.stepContainer}>
-        <Text style={styles.stepTitle}>Where would you like to go?</Text>
+        <Text style={styles.stepTitle}>Plan Your Trip</Text>
         <Text style={styles.stepDescription}>
-          Enter your destination or search for a location
+          Enter your starting point and destination
         </Text>
 
+        {/* Starting location input */}
         <View style={styles.inputGroupDestination}>
+          <Text style={styles.inputLabel}>Starting Location</Text>
+          <View style={styles.destinationInputContainer}>
+            <Ionicons
+              name="navigate-outline"
+              size={24}
+              color="#3498db"
+              style={styles.inputIcon}
+            />
+            <TextInput
+              style={styles.destinationInput}
+              placeholder="Your departure location"
+              value={startingLocation}
+              onChangeText={setStartingLocation}
+              placeholderTextColor="#999"
+            />
+            {startingLocation ? (
+              <TouchableOpacity onPress={() => setStartingLocation("")}>
+                <Ionicons name="close-circle" size={22} color="#999" />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+
+          <TouchableOpacity
+            style={styles.locationSearchButton}
+            onPress={() => {
+              navigation.navigate("ChangeLocation", {
+                returnScreen: "AITravelPlanner",
+                isStartingLocation: true,
+              });
+            }}
+          >
+            <Text style={styles.locationSearchButtonText}>Change</Text>
+            <AntDesign
+              name="enviromento"
+              size={16}
+              color="#FFFFFF"
+              style={{ marginLeft: 5 }}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Destination input */}
+        <View style={styles.inputGroupDestination}>
+          <Text style={styles.inputLabel}>Destination</Text>
           <View style={styles.destinationInputContainer}>
             <Ionicons
               name="location-outline"
@@ -569,6 +646,7 @@ const AITravelPlanner = ({ navigation, route }) => {
             onPress={() => {
               navigation.navigate("ChangeLocation", {
                 returnScreen: "AITravelPlanner",
+                isStartingLocation: false,
               });
             }}
           >
@@ -1285,6 +1363,8 @@ const AITravelPlanner = ({ navigation, route }) => {
         destination,
         placeId: selectedDestination?.place_id || selectedDestination?.id,
         coordinates: selectedDestination?.coordinates,
+        startingLocation: startingLocation || "Current Location",
+        startingLocationCoords: startingLocationCoords || userLocation,
         budget,
         preferences: preferences.split(",").filter(Boolean).join(","),
         tripDuration,
@@ -1671,173 +1751,175 @@ const AITravelPlanner = ({ navigation, route }) => {
   };
 
   const navigateToTransportOptions = (destinationCoords) => {
+    // Navigate to transport options screen with the coordinates
+    if (!plan?.destination) {
+      Alert.alert(
+        "Missing Destination",
+        "Please generate a travel plan first."
+      );
+      return;
+    }
+
+    // Format coordinates properly
+    const destCoords = destinationCoords || {
+      latitude:
+        plan.destinationData?.details?.coordinates?.lat ||
+        plan.destinationData?.details?.coordinates?.latitude ||
+        0,
+      longitude:
+        plan.destinationData?.details?.coordinates?.lng ||
+        plan.destinationData?.details?.coordinates?.longitude ||
+        0,
+    };
+
+    console.log("Navigating to TransportOptions with params:", {
+      origin: {
+        latitude: startingLocationCoords?.latitude || userLocation?.latitude,
+        longitude: startingLocationCoords?.longitude || userLocation?.longitude,
+        name: startingLocation,
+      },
+      destination: {
+        latitude: destCoords.latitude,
+        longitude: destCoords.longitude,
+        name: plan.destination,
+      },
+      departureDate: checkInDate,
+    });
+
     navigation.navigate("TransportOptions", {
-      origin: userLocation,
-      destination: destinationCoords,
-      destinationName: plan?.destination || selectedDestination?.name,
-      departureDate: plan?.startDate || new Date(),
+      origin: {
+        latitude: startingLocationCoords?.latitude || userLocation?.latitude,
+        longitude: startingLocationCoords?.longitude || userLocation?.longitude,
+        name: startingLocation,
+      },
+      destination: {
+        latitude: destCoords.latitude,
+        longitude: destCoords.longitude,
+        name: plan.destination,
+      },
+      departureDate: checkInDate,
     });
   };
 
-  // Inside the render method, add the transport selection button
+  // Render transport section
   const renderTransportSection = () => {
     if (!plan) return null;
 
-    return (
-      <View style={styles.sectionContainer}>
-        <View style={styles.sectionHeader}>
-          <FontAwesome5 name="route" size={18} color="#333" />
-          <Text style={styles.sectionTitle}>Transportation</Text>
-
-          {!transportSelected && (
-            <TouchableOpacity
-              style={styles.selectButton}
-              onPress={handleSelectTransport}
-            >
-              <Text style={styles.selectButtonText}>Select</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {transportSelected ? (
-          <View style={styles.selectedTransportContainer}>
-            <View style={styles.transportHeader}>
-              <FontAwesome5
-                name={transportType === "flight" ? "plane" : "car"}
-                size={18}
-                color="#4285F4"
-              />
-              <Text style={styles.transportTypeText}>
-                {transportType === "flight" ? "Flight" : "Driving Route"}
-              </Text>
+    // If transport already selected, show the details
+    if (transportSelected && transportType && transportDetails) {
+      return (
+        <View style={styles.planCard}>
+          <Text style={styles.planCardTitle}>Transportation</Text>
+          <View style={styles.transportSelectedContainer}>
+            <View style={styles.transportSelectedHeader}>
+              <View style={styles.transportTypeContainer}>
+                <Ionicons
+                  name={transportType === "flight" ? "airplane" : "car"}
+                  size={20}
+                  color="#3498db"
+                />
+                <Text style={styles.transportTypeText}>
+                  {transportType === "flight" ? "Flight" : "Driving Directions"}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.changeTransportButton}
+                onPress={() => navigateToTransportOptions()}
+              >
+                <Text style={styles.changeTransportText}>Change</Text>
+              </TouchableOpacity>
             </View>
 
-            {transportType === "flight" ? (
+            {/* Flight details */}
+            {transportType === "flight" && transportDetails && (
               <View style={styles.flightDetailsContainer}>
                 <View style={styles.flightRow}>
-                  <Text style={styles.flightLabel}>Airline:</Text>
-                  <Text style={styles.flightValue}>
-                    {FlightService.getAirlineName(transportDetails.airline)}
-                  </Text>
+                  <View style={styles.flightLocationContainer}>
+                    <Text style={styles.flightCity}>
+                      {transportDetails.departureCity || startingLocation}
+                    </Text>
+                    <Text style={styles.flightTime}>
+                      {transportDetails.departureTime || "12:00 PM"}
+                    </Text>
+                  </View>
+
+                  <View style={styles.flightLineContainer}>
+                    <View style={styles.flightLine} />
+                    <Ionicons name="airplane" size={20} color="#3498db" />
+                  </View>
+
+                  <View style={styles.flightLocationContainer}>
+                    <Text style={styles.flightCity}>
+                      {transportDetails.arrivalCity || plan.destination}
+                    </Text>
+                    <Text style={styles.flightTime}>
+                      {transportDetails.arrivalTime || "2:30 PM"}
+                    </Text>
+                  </View>
                 </View>
 
-                <View style={styles.flightRow}>
-                  <Text style={styles.flightLabel}>Departure:</Text>
-                  <Text style={styles.flightValue}>
-                    {FlightService.formatFlightDate(
-                      transportDetails.departureTime
-                    )}
+                <View style={styles.flightDetails}>
+                  <Text style={styles.flightDetailText}>
+                    {transportDetails.airline || "Major Airline"} •{" "}
+                    {transportDetails.flightDuration || "2h 30m"}
                   </Text>
-                </View>
-
-                <View style={styles.flightRow}>
-                  <Text style={styles.flightLabel}>Arrival:</Text>
-                  <Text style={styles.flightValue}>
-                    {FlightService.formatFlightDate(
-                      transportDetails.arrivalTime
-                    )}
-                  </Text>
-                </View>
-
-                <View style={styles.flightRow}>
-                  <Text style={styles.flightLabel}>Duration:</Text>
-                  <Text style={styles.flightValue}>
-                    {FlightService.formatFlightDuration(
-                      transportDetails.duration
-                    )}
-                  </Text>
-                </View>
-
-                <View style={styles.flightRow}>
-                  <Text style={styles.flightLabel}>Price:</Text>
-                  <Text style={styles.flightValue}>
-                    {transportDetails.currency}{" "}
-                    {parseFloat(transportDetails.price).toFixed(2)}
+                  <Text style={styles.flightPrice}>
+                    ${transportDetails.price || "150"}
                   </Text>
                 </View>
               </View>
-            ) : (
-              <View style={styles.drivingDetailsContainer}>
-                <View style={styles.drivingRow}>
-                  <FontAwesome5 name="road" size={16} color="#757575" />
-                  <Text style={styles.drivingText}>
-                    Distance: {transportDetails.distance} km
+            )}
+
+            {/* Driving directions */}
+            {transportType === "driving" && (
+              <View style={styles.drivingContainer}>
+                <View style={styles.drivingHeader}>
+                  <View style={styles.drivingRoute}>
+                    <Text style={styles.drivingLocation}>
+                      {startingLocation}
+                    </Text>
+                    <Ionicons name="arrow-forward" size={16} color="#666" />
+                    <Text style={styles.drivingLocation}>
+                      {plan.destination}
+                    </Text>
+                  </View>
+                  <Text style={styles.drivingDistance}>
+                    {transportDetails?.distance || "500 miles"}
                   </Text>
                 </View>
 
-                <View style={styles.drivingRow}>
-                  <FontAwesome5 name="clock" size={16} color="#757575" />
-                  <Text style={styles.drivingText}>
-                    Duration: ~{Math.floor(transportDetails.duration / 60)}h{" "}
-                    {transportDetails.duration % 60}m
-                  </Text>
+                <View style={styles.drivingDetails}>
+                  <View style={styles.drivingDetailItem}>
+                    <Ionicons name="time-outline" size={16} color="#3498db" />
+                    <Text style={styles.drivingDetailText}>
+                      {transportDetails?.duration || "8 hours"}
+                    </Text>
+                  </View>
+                  <View style={styles.drivingDetailItem}>
+                    <Ionicons name="cash-outline" size={16} color="#3498db" />
+                    <Text style={styles.drivingDetailText}>
+                      Est. ${transportDetails?.cost || "50"} (gas)
+                    </Text>
+                  </View>
                 </View>
-
-                <View style={styles.drivingRow}>
-                  <FontAwesome5 name="gas-pump" size={16} color="#757575" />
-                  <Text style={styles.drivingText}>
-                    Estimated Cost: ${transportDetails.cost.toFixed(2)}
-                  </Text>
-                </View>
-
-                <TouchableOpacity
-                  style={styles.viewRouteButton}
-                  onPress={() => {
-                    // Debug output before navigation
-                    console.log("Navigating to Globe with params:", {
-                      userLocation,
-                      destination: selectedDestination?.coordinates,
-                      destinationName:
-                        plan?.destination || selectedDestination?.name,
-                    });
-
-                    // Ensure we have valid coordinates
-                    if (!userLocation) {
-                      Alert.alert(
-                        "Missing Location",
-                        "Your current location is not available. Please try again."
-                      );
-                      return;
-                    }
-
-                    if (!selectedDestination?.coordinates) {
-                      Alert.alert(
-                        "Missing Destination",
-                        "Destination coordinates are not available."
-                      );
-                      return;
-                    }
-
-                    // Navigate using the proper nested navigator approach
-                    navigation.navigate("MainTabs", {
-                      screen: "Globe",
-                      params: {
-                        showRoute: true,
-                        origin: userLocation,
-                        destination: {
-                          latitude: selectedDestination?.coordinates?.latitude,
-                          longitude:
-                            selectedDestination?.coordinates?.longitude,
-                        },
-                        destinationName:
-                          plan?.destination || selectedDestination?.name,
-                      },
-                    });
-                  }}
-                >
-                  <Text style={styles.viewRouteButtonText}>View on Map</Text>
-                </TouchableOpacity>
               </View>
             )}
           </View>
-        ) : (
-          <View style={styles.transportPlaceholder}>
-            <MaterialIcons name="flight-takeoff" size={24} color="#BDBDBD" />
-            <Text style={styles.transportPlaceholderText}>
-              Select your transportation method
-            </Text>
-          </View>
-        )}
+        </View>
+      );
+    }
+
+    // Show the "Add transportation" button
+    return (
+      <View style={styles.planCard}>
+        <Text style={styles.planCardTitle}>Transportation</Text>
+        <TouchableOpacity
+          style={styles.addTransportButton}
+          onPress={() => navigateToTransportOptions()}
+        >
+          <Ionicons name="add-circle-outline" size={24} color="#3498db" />
+          <Text style={styles.addTransportText}>Add Transportation</Text>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -2571,59 +2653,143 @@ const styles = StyleSheet.create({
     backgroundColor: "#f9f9f9",
     borderRadius: 8,
     padding: 15,
+    marginTop: 10,
   },
-  transportHeader: {
+  transportSelectedHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  transportTypeContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
   },
   transportTypeText: {
     fontSize: 16,
-    fontWeight: "bold",
-    marginLeft: 8,
+    fontWeight: "600",
     color: "#333",
+    marginLeft: 8,
+  },
+  changeTransportButton: {
+    padding: 6,
+    paddingHorizontal: 12,
+    backgroundColor: "#f0f0f0",
+    borderRadius: 8,
+  },
+  changeTransportText: {
+    color: "#3498db",
+    fontSize: 14,
+    fontWeight: "500",
   },
   flightDetailsContainer: {
-    marginTop: 5,
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#eee",
   },
   flightRow: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 8,
+    marginBottom: 12,
   },
-  flightLabel: {
-    fontSize: 14,
-    color: "#757575",
+  flightLocationContainer: {
+    alignItems: "center",
   },
-  flightValue: {
-    fontSize: 14,
-    fontWeight: "500",
+  flightCity: {
+    fontSize: 16,
+    fontWeight: "600",
     color: "#333",
   },
-  drivingDetailsContainer: {
-    marginTop: 5,
+  flightTime: {
+    fontSize: 14,
+    color: "#666",
+    marginTop: 2,
   },
-  drivingRow: {
+  flightLineContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 10,
+    flex: 1,
+    marginHorizontal: 10,
   },
-  drivingText: {
-    fontSize: 14,
-    marginLeft: 10,
-    color: "#333",
+  flightLine: {
+    height: 1,
+    flex: 1,
+    backgroundColor: "#ddd",
   },
-  viewRouteButton: {
-    backgroundColor: "#4285F4",
-    paddingVertical: 10,
-    borderRadius: 8,
+  flightDetails: {
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 10,
+    marginTop: 5,
   },
-  viewRouteButtonText: {
-    color: "#fff",
-    fontWeight: "bold",
+  flightDetailText: {
     fontSize: 14,
+    color: "#666",
+  },
+  flightPrice: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#2ecc71",
+  },
+  drivingContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#eee",
+  },
+  drivingHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  drivingRoute: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  drivingLocation: {
+    fontSize: 15,
+    color: "#333",
+    marginHorizontal: 6,
+  },
+  drivingDistance: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#666",
+  },
+  drivingDetails: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  drivingDetailItem: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  drivingDetailText: {
+    fontSize: 14,
+    color: "#666",
+    marginLeft: 6,
+  },
+  addTransportButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f9f9f9",
+    borderRadius: 8,
+    padding: 15,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#eee",
+    borderStyle: "dashed",
+  },
+  addTransportText: {
+    fontSize: 16,
+    color: "#3498db",
+    marginLeft: 8,
   },
   aiToolsContainer: {
     backgroundColor: "#fff",
