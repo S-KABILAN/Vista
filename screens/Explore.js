@@ -183,11 +183,170 @@ const Explore = ({ navigation }) => {
     fetchAllDestinations();
   }, []);
 
-  // Category filter function
-  const handleCategoryPress = (category) => {
+  // Update the handleCategoryPress function to fetch relevant places based on the selected category
+  const handleCategoryPress = async (category) => {
     setActiveCategory(category.name);
-    // In a real implementation, you would filter destinations based on category
-    // For now, we'll just indicate which category is active
+    setLoading(true);
+
+    try {
+      // Map category names to appropriate Google Places API types and keywords
+      const categoryMappings = {
+        All: { type: "tourist_attraction", keyword: "" },
+        Beaches: { type: "natural_feature", keyword: "beach" },
+        Mountains: { type: "natural_feature", keyword: "mountain" },
+        Cities: { type: "locality", keyword: "city" },
+        Cultural: { type: "museum", keyword: "cultural" },
+        Adventure: { type: "tourist_attraction", keyword: "adventure" },
+      };
+
+      // Get the appropriate type and keyword for the selected category
+      const { type: placeType, keyword } =
+        categoryMappings[category.name] || categoryMappings["All"];
+
+      // Select appropriate locations based on the category
+      let locationsToFetch = [];
+
+      if (category.name === "All") {
+        // For "All", use the original location sets
+        const featuredPromises = FEATURED_LOCATIONS.map((location) =>
+          fetchPlacesForLocation(location, "tourist_attraction")
+        );
+        const popularPromises = POPULAR_LOCATIONS.map((location) =>
+          fetchPlacesForLocation(location, "tourist_attraction")
+        );
+        const trendingPromises = TRENDING_LOCATIONS.map((location) =>
+          fetchPlacesForLocation(location, "tourist_attraction")
+        );
+
+        const [featuredResults, popularResults, trendingResults] =
+          await Promise.all([
+            Promise.all(featuredPromises),
+            Promise.all(popularPromises),
+            Promise.all(trendingPromises),
+          ]);
+
+        setFeaturedDestinations(featuredResults.flat().slice(0, 5));
+        setPopularDestinations(popularResults.flat().slice(0, 6));
+        setTrendingDestinations(trendingResults.flat().slice(0, 6));
+      } else {
+        // For specific categories, combine all location sets and filter by the category
+        locationsToFetch = [
+          ...FEATURED_LOCATIONS,
+          ...POPULAR_LOCATIONS,
+          ...TRENDING_LOCATIONS,
+        ];
+
+        // Remove duplicates based on name
+        locationsToFetch = Array.from(
+          new Map(locationsToFetch.map((loc) => [loc.name, loc])).values()
+        );
+
+        // Fetch places for each location with the appropriate type and keyword
+        const promises = locationsToFetch.map((location) =>
+          fetchPlacesForCategoryAndLocation(location, placeType, keyword)
+        );
+
+        const results = await Promise.all(promises);
+        const allPlaces = results.flat();
+
+        // Randomize and split the results into the three sections
+        const shuffled = allPlaces.sort(() => 0.5 - Math.random());
+
+        if (shuffled.length > 0) {
+          const featuredCount = Math.min(5, shuffled.length);
+          const popularCount = Math.min(
+            6,
+            Math.max(0, shuffled.length - featuredCount)
+          );
+          const trendingCount = Math.min(
+            6,
+            Math.max(0, shuffled.length - featuredCount - popularCount)
+          );
+
+          setFeaturedDestinations(shuffled.slice(0, featuredCount));
+          setPopularDestinations(
+            shuffled.slice(featuredCount, featuredCount + popularCount)
+          );
+          setTrendingDestinations(
+            shuffled.slice(
+              featuredCount + popularCount,
+              featuredCount + popularCount + trendingCount
+            )
+          );
+        } else {
+          // If no results, show empty states
+          setFeaturedDestinations([]);
+          setPopularDestinations([]);
+          setTrendingDestinations([]);
+
+          // Display a message to the user
+          Alert.alert(
+            "No Results",
+            `No ${category.name.toLowerCase()} destinations found. Try another category.`
+          );
+        }
+      }
+    } catch (error) {
+      console.error(`Error fetching ${category.name} destinations:`, error);
+      Alert.alert(
+        "Error",
+        `Failed to load ${category.name.toLowerCase()} destinations. Please try again.`
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // New function to fetch places specific to a category and location
+  const fetchPlacesForCategoryAndLocation = async (
+    location,
+    placeType,
+    keyword
+  ) => {
+    try {
+      const params = {
+        location: `${location.latitude},${location.longitude}`,
+        radius: 50000, // 50km radius
+        type: placeType,
+        key: googleapis,
+        rankby: "prominence",
+      };
+
+      // Add keyword if provided
+      if (keyword) {
+        params.keyword = keyword;
+      }
+
+      const response = await axios.get(
+        `https://maps.googleapis.com/maps/api/place/nearbysearch/json`,
+        { params }
+      );
+
+      if (response.data.status === "OK" && response.data.results.length > 0) {
+        // Process and return place data
+        return response.data.results.map((place) => ({
+          id: place.place_id,
+          name: place.name,
+          country: extractCountry(place),
+          description: place.vicinity || `Explore ${place.name}`,
+          rating: place.rating || 4.5,
+          image:
+            place.photos && place.photos.length > 0
+              ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${place.photos[0].photo_reference}&key=${googleapis}`
+              : `https://maps.googleapis.com/maps/api/streetview?size=800x800&location=${place.geometry.location.lat},${place.geometry.location.lng}&key=${googleapis}`,
+          latitude: place.geometry.location.lat,
+          longitude: place.geometry.location.lng,
+          priceRange: place.price_level ? "$".repeat(place.price_level) : "$$",
+          trending: calculateTrendingPercentage(),
+          place_details: place,
+          category: keyword || placeType, // Add category information to the data
+        }));
+      }
+      return [];
+    } catch (error) {
+      console.error("Error fetching category places:", error);
+      return [];
+    }
   };
 
   const handleSearch = () => {
@@ -288,8 +447,30 @@ const Explore = ({ navigation }) => {
       >
         {item.name}
       </Text>
+      {activeCategory === item.name && (
+        <View style={styles.categoryIndicator} />
+      )}
     </TouchableOpacity>
   );
+
+  // Add an empty state component for when no destinations are found
+  const EmptyStateCard = ({ category, section }) => (
+    <View style={styles.emptyStateCard}>
+      <MaterialIcons name="search-off" size={36} color="#ccc" />
+      <Text style={styles.emptyStateTitle}>
+        No {category.toLowerCase()} {section.toLowerCase()} found
+      </Text>
+      <Text style={styles.emptyStateText}>
+        Try another category or check back later
+      </Text>
+    </View>
+  );
+
+  // Update section titles to reflect the selected category
+  const getSectionTitle = (baseTitle, category) => {
+    if (category === "All" || !category) return baseTitle;
+    return `${baseTitle} - ${category}`;
+  };
 
   if (loading) {
     return (
@@ -370,6 +551,16 @@ const Explore = ({ navigation }) => {
         </LinearGradient>
       </View>
 
+      {/* Add loading overlay when changing categories */}
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#3498db" />
+          <Text style={styles.categoryLoadingText}>
+            Discovering {activeCategory.toLowerCase()} destinations...
+          </Text>
+        </View>
+      )}
+
       <ScrollView
         style={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
@@ -387,68 +578,104 @@ const Explore = ({ navigation }) => {
 
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Featured Destinations</Text>
+            <Text style={styles.sectionTitle}>
+              {getSectionTitle("Featured Destinations", activeCategory)}
+            </Text>
             <TouchableOpacity
               onPress={() =>
-                navigation.navigate("AllDestinations", { type: "featured" })
+                navigation.navigate("AllDestinations", {
+                  type: "featured",
+                  category: activeCategory !== "All" ? activeCategory : null,
+                })
               }
             >
               <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
           </View>
-          <FlatList
-            data={featuredDestinations}
-            renderItem={renderFeaturedItem}
-            keyExtractor={(item) => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.listContainer}
-            snapToInterval={cardWidth + 20}
-            decelerationRate="fast"
-            pagingEnabled
-          />
+          {featuredDestinations.length > 0 ? (
+            <FlatList
+              data={featuredDestinations}
+              renderItem={renderFeaturedItem}
+              keyExtractor={(item) => item.id}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.listContainer}
+              snapToInterval={cardWidth + 20}
+              decelerationRate="fast"
+              pagingEnabled
+            />
+          ) : (
+            <EmptyStateCard
+              category={activeCategory}
+              section="featured destinations"
+            />
+          )}
         </View>
 
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Popular Destinations</Text>
+            <Text style={styles.sectionTitle}>
+              {getSectionTitle("Popular Destinations", activeCategory)}
+            </Text>
             <TouchableOpacity
               onPress={() =>
-                navigation.navigate("AllDestinations", { type: "popular" })
+                navigation.navigate("AllDestinations", {
+                  type: "popular",
+                  category: activeCategory !== "All" ? activeCategory : null,
+                })
               }
             >
               <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
           </View>
-          <FlatList
-            data={popularDestinations}
-            renderItem={renderPopularItem}
-            keyExtractor={(item) => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.listContainer}
-          />
+          {popularDestinations.length > 0 ? (
+            <FlatList
+              data={popularDestinations}
+              renderItem={renderPopularItem}
+              keyExtractor={(item) => item.id}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.listContainer}
+            />
+          ) : (
+            <EmptyStateCard
+              category={activeCategory}
+              section="popular destinations"
+            />
+          )}
         </View>
 
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Trending Now</Text>
+            <Text style={styles.sectionTitle}>
+              {getSectionTitle("Trending Now", activeCategory)}
+            </Text>
             <TouchableOpacity
               onPress={() =>
-                navigation.navigate("AllDestinations", { type: "trending" })
+                navigation.navigate("AllDestinations", {
+                  type: "trending",
+                  category: activeCategory !== "All" ? activeCategory : null,
+                })
               }
             >
               <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
           </View>
-          <FlatList
-            data={trendingDestinations}
-            renderItem={renderTrendingItem}
-            keyExtractor={(item) => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.listContainer}
-          />
+          {trendingDestinations.length > 0 ? (
+            <FlatList
+              data={trendingDestinations}
+              renderItem={renderTrendingItem}
+              keyExtractor={(item) => item.id}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.listContainer}
+            />
+          ) : (
+            <EmptyStateCard
+              category={activeCategory}
+              section="trending destinations"
+            />
+          )}
         </View>
 
         <View style={styles.inspirationContainer}>
@@ -887,6 +1114,54 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
     textAlign: "center",
+  },
+  emptyStateCard: {
+    height: 200,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f9f9f9",
+    borderRadius: 12,
+    marginHorizontal: 20,
+    padding: 20,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: "#eee",
+  },
+  emptyStateTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#666",
+    marginTop: 12,
+    marginBottom: 4,
+    textAlign: "center",
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: "#999",
+    textAlign: "center",
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 100,
+  },
+  categoryLoadingText: {
+    fontSize: 16,
+    color: "#666",
+    marginTop: 10,
+  },
+  categoryIndicator: {
+    position: "absolute",
+    top: -5,
+    right: -5,
+    backgroundColor: "#2ecc71",
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: "#fff",
   },
 });
 

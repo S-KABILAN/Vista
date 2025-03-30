@@ -53,25 +53,31 @@ const LOCATIONS_BY_TYPE = {
 const AllDestinations = ({ route, navigation }) => {
   const [destinations, setDestinations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { type = "featured" } = route.params || {};
+  const { type = "featured", category = null } = route.params || {};
 
   // Fetch places from Google Places API based on location coordinates
   const fetchPlacesForLocation = async (
     location,
-    type = "tourist_attraction"
+    type = "tourist_attraction",
+    keyword = ""
   ) => {
     try {
+      const params = {
+        location: `${location.latitude},${location.longitude}`,
+        radius: 50000, // 50km radius
+        type: type,
+        key: googleapis,
+        rankby: "prominence",
+      };
+
+      // Add keyword if provided
+      if (keyword) {
+        params.keyword = keyword;
+      }
+
       const response = await axios.get(
         `https://maps.googleapis.com/maps/api/place/nearbysearch/json`,
-        {
-          params: {
-            location: `${location.latitude},${location.longitude}`,
-            radius: 50000, // 50km radius
-            type: type,
-            key: googleapis,
-            rankby: "prominence",
-          },
-        }
+        { params }
       );
 
       if (response.data.status === "OK" && response.data.results.length > 0) {
@@ -117,15 +123,30 @@ const AllDestinations = ({ route, navigation }) => {
     return `+${Math.floor(Math.random() * 40) + 20}%`;
   };
 
-  // Fetch all destinations for the specified type
+  // Fetch all destinations for the specified type and category
   const fetchDestinations = async () => {
     setLoading(true);
     try {
       const locations = LOCATIONS_BY_TYPE[type] || LOCATIONS_BY_TYPE.featured;
 
+      // Map category names to appropriate Google Places API types and keywords
+      const categoryMappings = {
+        All: { type: "tourist_attraction", keyword: "" },
+        Beaches: { type: "natural_feature", keyword: "beach" },
+        Mountains: { type: "natural_feature", keyword: "mountain" },
+        Cities: { type: "locality", keyword: "city" },
+        Cultural: { type: "museum", keyword: "cultural" },
+        Adventure: { type: "tourist_attraction", keyword: "adventure" },
+      };
+
+      // Get the appropriate type and keyword for the selected category
+      const { type: placeType, keyword } = category
+        ? categoryMappings[category]
+        : { type: "tourist_attraction", keyword: "" };
+
       // Fetch tourist attractions for each location
       const promises = locations.map((location) =>
-        fetchPlacesForLocation(location, "tourist_attraction")
+        fetchPlacesForLocation(location, placeType, keyword)
       );
 
       const results = await Promise.all(promises);
@@ -150,19 +171,25 @@ const AllDestinations = ({ route, navigation }) => {
 
   useEffect(() => {
     fetchDestinations();
-  }, [type]);
+  }, [type, category]);
 
   const getTypeTitle = () => {
-    switch (type) {
-      case "featured":
-        return "Featured Destinations";
-      case "popular":
-        return "Popular Destinations";
-      case "trending":
-        return "Trending Destinations";
-      default:
-        return "All Destinations";
-    }
+    const baseTitle = (() => {
+      switch (type) {
+        case "featured":
+          return "Featured Destinations";
+        case "popular":
+          return "Popular Destinations";
+        case "trending":
+          return "Trending Destinations";
+        default:
+          return "All Destinations";
+      }
+    })();
+
+    return category && category !== "All"
+      ? `${baseTitle} - ${category}`
+      : baseTitle;
   };
 
   const handleDestinationPress = (destination) => {
