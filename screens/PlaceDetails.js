@@ -396,9 +396,21 @@ const PlaceDetails = ({ route, navigation }) => {
 
   const navigateToAIPlanner = () => {
     // Navigate to AI Travel Planner with this destination pre-filled
-    navigation.navigate("AITravelPlanner", {
-      prefilledDestination: destination.name,
-      destination: placeData,
+    // When navigating to a screen in the tab navigator from outside, we need to navigate to MainTabs first
+    navigation.navigate("MainTabs", {
+      screen: "AITravelPlanner",
+      params: {
+        selectedDestination: {
+          name: destination.name,
+          country: destination.country,
+          coordinates: {
+            latitude: destination.latitude,
+            longitude: destination.longitude,
+          },
+          description: destination.description,
+          place_details: placeData?.place_details || null,
+        },
+      },
     });
   };
 

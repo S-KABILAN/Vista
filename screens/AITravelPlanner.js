@@ -245,7 +245,7 @@ const AITravelPlanner = ({ navigation, route }) => {
       // Prepare request parameters
       const params = {
         destination: selectedDestination
-          ? selectedDestination.mainText
+          ? selectedDestination.mainText || selectedDestination.name
           : destination,
         budget,
         tripDuration,
@@ -253,8 +253,11 @@ const AITravelPlanner = ({ navigation, route }) => {
       };
 
       // If we have a selected place with placeId, use it
-      if (selectedDestination && selectedDestination.placeId) {
-        params.placeId = selectedDestination.placeId;
+      if (
+        selectedDestination &&
+        (selectedDestination.placeId || selectedDestination.id)
+      ) {
+        params.placeId = selectedDestination.placeId || selectedDestination.id;
       }
 
       // Use the TravelPlanService to get recommendations
@@ -1243,7 +1246,7 @@ const AITravelPlanner = ({ navigation, route }) => {
 
       const result = await TravelPlanService.getAIRecommendations({
         destination,
-        placeId: selectedDestination?.place_id,
+        placeId: selectedDestination?.place_id || selectedDestination?.id,
         coordinates: selectedDestination?.coordinates,
         budget,
         preferences: preferences.split(",").filter(Boolean).join(","),
