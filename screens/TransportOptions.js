@@ -138,6 +138,7 @@ const TransportOptions = ({ route, navigation }) => {
         destination
       );
       setFlightOptions(flights);
+      setFlights(flights); // Also update the original flights state variable for backward compatibility
 
       // Fetch train options if available in your API
       const trains = await TransportService.getTrainOptions(
@@ -244,7 +245,24 @@ const TransportOptions = ({ route, navigation }) => {
   };
 
   const handleSelectFlight = (flight) => {
+    console.log(
+      "Selected flight:",
+      flight.id,
+      flight.airlineName || flight.airline
+    );
     setSelectedFlight(flight);
+    // When a flight is selected, ensure we're in the flights tab
+    setActiveTransportType("flights");
+  };
+
+  // Simplified function to get the correct flight options to render
+  const getFlightOptionsToRender = () => {
+    // First try to use the newer flightOptions state
+    if (flightOptions && flightOptions.length > 0) {
+      return flightOptions;
+    }
+    // Fallback to the original flights state
+    return flights;
   };
 
   const handleGoToGlobe = () => {
@@ -277,21 +295,74 @@ const TransportOptions = ({ route, navigation }) => {
         Alert.alert("Select a Flight", "Please select a flight to continue.");
         return;
       }
-      transportDetails = selectedFlight;
+
+      // Make sure the transportDetails have all required fields for display
+      transportDetails = {
+        ...selectedFlight,
+        // Ensure these fields are present for display in the planner
+        type: "flight",
+        provider:
+          selectedFlight.airlineName ||
+          FlightService.getAirlineName(selectedFlight.airline),
+        flightNumber:
+          selectedFlight.flightNumber || `${selectedFlight.airline}123`,
+        originCode: selectedFlight.departureAirport,
+        destinationCode: selectedFlight.arrivalAirport,
+        departureCity: selectedFlight.departureCity || origin.name || "Origin",
+        arrivalCity:
+          selectedFlight.arrivalCity || destination.name || "Destination",
+      };
     } else if (activeTransportType === "trains") {
-      // For train, we would need a selected train
-      // This is a simplified example
-      transportDetails = trainOptions[0];
+      // For train, check if one is selected or use first option as fallback
+      if (trainOptions.length === 0) {
+        Alert.alert(
+          "No Trains Available",
+          "There are no train options for this route."
+        );
+        return;
+      }
+
+      transportDetails = {
+        ...trainOptions[0],
+        type: "train",
+        provider: trainOptions[0].operator,
+      };
     } else if (activeTransportType === "buses") {
-      // For bus, we would need a selected bus
-      // This is a simplified example
-      transportDetails = busOptions[0];
+      // For bus, check if one is selected or use first option as fallback
+      if (busOptions.length === 0) {
+        Alert.alert(
+          "No Buses Available",
+          "There are no bus options for this route."
+        );
+        return;
+      }
+
+      transportDetails = {
+        ...busOptions[0],
+        type: "bus",
+        provider: busOptions[0].operator,
+      };
     } else if (activeTransportType === "driving") {
-      transportDetails = drivingOption || drivingInfo;
+      const drivingDetails = drivingOption || drivingInfo;
+      if (!drivingDetails) {
+        Alert.alert(
+          "Driving Info Not Available",
+          "Could not calculate driving route."
+        );
+        return;
+      }
+
+      transportDetails = {
+        ...drivingDetails,
+        type: "driving",
+        provider: "Self-driving",
+      };
     } else {
       Alert.alert("Select Transport", "Please select a transportation option.");
       return;
     }
+
+    console.log("Continue with transport details:", transportDetails);
 
     // Return to AITravelPlanner with selected transportation info
     navigation.navigate("MainTabs", {
@@ -416,7 +487,9 @@ const TransportOptions = ({ route, navigation }) => {
       );
     }
 
-    if (flights.length === 0) {
+    const flightsToDisplay = getFlightOptionsToRender();
+
+    if (!flightsToDisplay || flightsToDisplay.length === 0) {
       return (
         <View style={styles.emptyContainer}>
           <MaterialIcons name="flight-takeoff" size={48} color="#BDBDBD" />
@@ -427,8 +500,8 @@ const TransportOptions = ({ route, navigation }) => {
 
     return (
       <FlatList
-        data={flights}
-        keyExtractor={(item) => item.id}
+        data={flightsToDisplay}
+        keyExtractor={(item) => item.id || `flight-${Math.random()}`}
         renderItem={({ item }) => (
           <FlightCard
             flight={item}
@@ -564,17 +637,7 @@ const TransportOptions = ({ route, navigation }) => {
 
       {/* Transport Options */}
       <View style={styles.optionsContainer}>
-        {activeTransportType === "flights" &&
-          (flightOptions.length > 0 ? (
-            renderFlightOptions()
-          ) : (
-            <View style={styles.emptyContainer}>
-              <MaterialIcons name="flight-takeoff" size={48} color="#BDBDBD" />
-              <Text style={styles.emptyText}>
-                No flights found for this route
-              </Text>
-            </View>
-          ))}
+        {activeTransportType === "flights" && renderFlightOptions()}
 
         {activeTransportType === "trains" &&
           (trainOptions.length > 0 ? (

@@ -8,19 +8,60 @@ import {
 } from "../services/FlightService";
 
 const FlightCard = ({ flight, onSelect, isSelected }) => {
+  // Handle missing flight data
+  if (!flight) {
+    return (
+      <View style={[styles.container, styles.errorContainer]}>
+        <Text style={styles.errorText}>Invalid flight data</Text>
+      </View>
+    );
+  }
+
+  // Extract flight details with fallbacks for both API and mock data formats
   const {
     airline,
     price,
-    currency,
+    currency = "USD",
     departureTime,
     arrivalTime,
     duration,
-    stops,
-    segments,
+    stops = 0,
+    segments = [],
   } = flight;
 
-  const firstSegment = segments[0];
-  const lastSegment = segments[segments.length - 1];
+  // Handle case where segments might not be defined or empty
+  const firstSegment = segments && segments.length > 0 ? segments[0] : null;
+  const lastSegment =
+    segments && segments.length > 0 ? segments[segments.length - 1] : null;
+
+  // If segments are missing, try to use the main flight object for basic info
+  const departureAirport =
+    firstSegment?.departureAirport || flight.departureAirport || "N/A";
+  const arrivalAirport =
+    lastSegment?.arrivalAirport || flight.arrivalAirport || "N/A";
+  const displayDepartureTime = departureTime || flight.departureDate;
+  const displayArrivalTime = arrivalTime || flight.arrivalDate;
+
+  // Format the price for display
+  const displayPrice = () => {
+    try {
+      if (typeof price === "number") {
+        return price.toFixed(2);
+      } else if (typeof price === "string") {
+        return parseFloat(price).toFixed(2);
+      }
+      return "0.00";
+    } catch (e) {
+      return "0.00";
+    }
+  };
+
+  // Get airline name with fallback
+  const displayAirlineName =
+    flight.airlineName ||
+    getAirlineName(airline) ||
+    airline ||
+    "Unknown Airline";
 
   return (
     <TouchableOpacity
@@ -32,10 +73,10 @@ const FlightCard = ({ flight, onSelect, isSelected }) => {
       <View style={styles.header}>
         <View style={styles.airlineContainer}>
           <FontAwesome5 name="plane" size={16} color="#4285F4" />
-          <Text style={styles.airlineName}>{getAirlineName(airline)}</Text>
+          <Text style={styles.airlineName}>{displayAirlineName}</Text>
         </View>
         <Text style={styles.price}>
-          {currency} {parseFloat(price).toFixed(2)}
+          {currency} {displayPrice()}
         </Text>
       </View>
 
@@ -43,8 +84,10 @@ const FlightCard = ({ flight, onSelect, isSelected }) => {
       <View style={styles.timesContainer}>
         <View style={styles.timeColumn}>
           <Text style={styles.timeLabel}>Departure</Text>
-          <Text style={styles.time}>{formatFlightDate(departureTime)}</Text>
-          <Text style={styles.airport}>{firstSegment.departureAirport}</Text>
+          <Text style={styles.time}>
+            {formatFlightDate(displayDepartureTime)}
+          </Text>
+          <Text style={styles.airport}>{departureAirport}</Text>
         </View>
 
         <View style={styles.durationContainer}>
@@ -62,8 +105,10 @@ const FlightCard = ({ flight, onSelect, isSelected }) => {
 
         <View style={styles.timeColumn}>
           <Text style={styles.timeLabel}>Arrival</Text>
-          <Text style={styles.time}>{formatFlightDate(arrivalTime)}</Text>
-          <Text style={styles.airport}>{lastSegment.arrivalAirport}</Text>
+          <Text style={styles.time}>
+            {formatFlightDate(displayArrivalTime)}
+          </Text>
+          <Text style={styles.airport}>{arrivalAirport}</Text>
         </View>
       </View>
 
@@ -205,6 +250,18 @@ const styles = StyleSheet.create({
   selectText: {
     color: "#757575",
     fontSize: 12,
+  },
+  errorContainer: {
+    backgroundColor: "#FFDAB9",
+    borderWidth: 1,
+    borderColor: "#FFA500",
+    padding: 16,
+  },
+  errorText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#FFA500",
+    textAlign: "center",
   },
 });
 
