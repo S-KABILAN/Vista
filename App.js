@@ -1,13 +1,19 @@
 // REMOVE THIS LINE FOR NOW - we'll add it back after fixing dependencies
 // import "react-native-gesture-handler";
 
-import React from "react";
+import React, { useState } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { View, Text, TouchableOpacity, ActivityIndicator } from "react-native";
 
 // Auth Context Provider
 import { AuthProvider, useAuth } from "./context/AuthContext";
+// User Preferences Provider
+import {
+  UserPreferencesProvider,
+  useUserPreferences,
+} from "./context/UserPreferencesContext";
 
 // Screens
 import Login from "./screens/Login";
@@ -27,7 +33,9 @@ import ChangeLocation from "./screens/ChangeLocation";
 import PlaceGo from "./screens/PlaceGo";
 import AITravelPlanner from "./screens/AITravelPlanner";
 import AIBudgetManager from "./screens/AIBudgetManager";
-import AllHotels from './screens/AllHotels';
+import AllHotels from "./screens/AllHotels";
+// User Preferences Onboarding
+import UserPreferencesOnboarding from "./screens/UserPreferencesOnboarding";
 
 // Import navigation
 import AppNavigation from "./navigation/AppNavigation";
@@ -37,21 +45,109 @@ import AppNavigation from "./navigation/AppNavigation";
 
 const Stack = createNativeStackNavigator();
 
+// Simple Error Boundary component
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("Error caught by ErrorBoundary:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View
+          style={{
+            flex: 1,
+            justifyContent: "center",
+            alignItems: "center",
+            padding: 20,
+          }}
+        >
+          <Text style={{ fontSize: 18, fontWeight: "bold", marginBottom: 10 }}>
+            Something went wrong
+          </Text>
+          <TouchableOpacity
+            style={{
+              backgroundColor: "#3498db",
+              padding: 12,
+              borderRadius: 8,
+            }}
+            onPress={() => this.setState({ hasError: false })}
+          >
+            <Text style={{ color: "white", fontWeight: "bold" }}>
+              Try Again
+            </Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // Main app component with conditional navigation
 const MainApp = () => {
   const { user, loading } = useAuth();
+  const { preferences, loading: preferencesLoading } = useUserPreferences();
 
-  if (loading) {
-    return null;
+  console.log("MainApp rendering with:", {
+    userExists: !!user,
+    prefsExists: !!preferences,
+    isOnboardingComplete: preferences?.isOnboardingComplete,
+    authLoading: loading,
+    prefsLoading: preferencesLoading
+  });
+
+  // Show loading state
+  if (loading || preferencesLoading) {
+    return (
+      <SafeAreaProvider>
+        <View
+          style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
+        >
+          <ActivityIndicator size="large" color="#3498db" />
+          <Text style={{ marginTop: 10 }}>Loading...</Text>
+        </View>
+      </SafeAreaProvider>
+    );
   }
 
-  return (
-    <SafeAreaProvider>
-      {user ? (
-        // User is signed in - use the main app navigation
-        <AppNavigation />
-      ) : (
-        // No user is signed in - show auth screens
+  // Check user and preferences state
+  if (user) {
+    // IMPORTANT: Check explicitly for isOnboardingComplete === true
+    if (!preferences || preferences.isOnboardingComplete !== true) {
+      console.log("User logged in but onboarding not complete, showing onboarding");
+      return (
+        <NavigationContainer>
+          <Stack.Navigator screenOptions={{ headerShown: false }}>
+            <Stack.Screen
+              name="UserPreferencesOnboarding"
+              component={UserPreferencesOnboarding}
+            />
+          </Stack.Navigator>
+        </NavigationContainer>
+      );
+    } else {
+      console.log("User logged in and onboarding complete, showing main app");
+      // User is signed in and completed onboarding
+      return (
+        <SafeAreaProvider>
+          <AppNavigation />
+        </SafeAreaProvider>
+      );
+    }
+  } else {
+    // No user signed in - show auth screens
+    return (
+      <SafeAreaProvider>
         <NavigationContainer>
           <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen
@@ -70,20 +166,28 @@ const MainApp = () => {
             <Stack.Screen name="Register" component={Register} />
             <Stack.Screen name="NamePage" component={NamePage} />
             <Stack.Screen name="Forgot" component={Forgot} />
-            <Stack.Screen name="AllHotels" component={AllHotels} options={{ headerShown: false }} />
+            <Stack.Screen
+              name="AllHotels"
+              component={AllHotels}
+              options={{ headerShown: false }}
+            />
           </Stack.Navigator>
         </NavigationContainer>
-      )}
-    </SafeAreaProvider>
-  );
+      </SafeAreaProvider>
+    );
+  }
 };
 
-// Wrap the app with AuthProvider
+// Wrap the app with providers
 export default function App() {
   return (
-    <AuthProvider>
-      <MainApp />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <UserPreferencesProvider>
+          <MainApp />
+        </UserPreferencesProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

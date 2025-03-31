@@ -188,6 +188,10 @@ export const AuthProvider = ({ children }) => {
         });
 
         setUser(userData);
+
+        // Important: Reset onboarding status in AsyncStorage to ensure the check happens
+        await AsyncStorage.removeItem(`userPreferences_${userData.id}`);
+
         return { success: true };
       } else {
         throw new Error("No token received from server");

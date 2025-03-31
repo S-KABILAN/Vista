@@ -38,6 +38,7 @@ import {
 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { weatherapi } from "../constants/constant";
+import { useUserPreferences } from "../context/UserPreferencesContext";
 
 const { height, width } = Dimensions.get("window");
 const cardWidth = width * 0.7;
@@ -54,6 +55,7 @@ const Home = ({ route }) => {
   const [currentWeather, setCurrentWeather] = useState(null);
   const [currentLocation, setCurrentLocation] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { preferences } = useUserPreferences();
 
   const fetchWeatherData = async (lat, lng) => {
     try {
@@ -141,6 +143,76 @@ const Home = ({ route }) => {
       setLoading(false);
     }
   };
+
+  const fetchRecommendations = async () => {
+    try {
+      const userInterests = preferences.travelInterests || [];
+      const userBudget = preferences.budgetRange || "moderate";
+      const preferredDestTypes = preferences.preferredDestinationTypes || [];
+
+      console.log("Fetching recommendations based on user preferences:", {
+        interests: userInterests,
+        budget: userBudget,
+        destinationTypes: preferredDestTypes,
+      });
+
+      const response = await axios.get(
+        `${BACKEND_URL}/api/personalized-recommendations`,
+        {
+          params: {
+            interests: userInterests.join(","),
+            budget: userBudget,
+            destinationTypes: preferredDestTypes.join(","),
+          },
+        }
+      );
+
+      if (response.data?.personalizedRecommendations?.destinations) {
+        setRecommendations(
+          response.data.personalizedRecommendations.destinations
+        );
+      }
+    } catch (error) {
+      console.error("Error fetching personalized recommendations:", error);
+      fetchDefaultRecommendations();
+    }
+  };
+
+  const fetchDefaultRecommendations = async () => {
+    try {
+      const defaultDestinations = [
+        {
+          id: "1",
+          name: "Paris",
+          country: "France",
+          image: "https://images.unsplash.com/photo-1502602898657-3e91760cbb34",
+          description: "The city of love and light.",
+        },
+        {
+          id: "2",
+          name: "Tokyo",
+          country: "Japan",
+          image: "https://images.unsplash.com/photo-1513171920216-2640b288471b",
+          description: "A blend of traditional and ultramodern.",
+        },
+        {
+          id: "3",
+          name: "New York",
+          country: "USA",
+          image: "https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9",
+          description: "The city that never sleeps.",
+        },
+      ];
+
+      setRecommendations(defaultDestinations);
+    } catch (error) {
+      console.error("Error fetching default recommendations:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchRecommendations();
+  }, [preferences]);
 
   useEffect(() => {
     if (route.params?.selectedLocation) {

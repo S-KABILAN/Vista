@@ -38,5 +38,6 @@ export default {
       },
     },
     scheme: "vistatravel",
+    newArchEnabled: true,
   },
 };

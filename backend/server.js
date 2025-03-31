@@ -9,8 +9,8 @@ const bodyParser = require("body-parser");
 const axios = require("axios");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const authRoutes = require("./routes/auth");
-// Removing missing routes imports
-// const userRoutes = require("./routes/users");
+// Import the users routes
+const userRoutes = require("./routes/users");
 const travelPlanRoutes = require("./routes/travelPlans");
 const { configurePassport } = require("./config/passport");
 const JwtStrategy = require("passport-jwt").Strategy;
@@ -63,7 +63,7 @@ mongoose
 
 // Routes
 app.use("/api/auth", authRoutes);
-// app.use("/api/users", userRoutes); // Commented out missing route
+app.use("/api/users", userRoutes); // Enable users routes
 app.use("/api/travel-plans", travelPlanRoutes);
 app.use("/api/hotels", hotelRoutes);
 app.use("/api/flights", flightRoutes);
@@ -73,69 +73,44 @@ app.use("/api/flights", flightRoutes);
 // Personalized Recommendations Endpoint
 app.get("/api/personalized-recommendations", async (req, res) => {
   try {
-    // Simulate user preferences and history (in a real app, this would come from a database)
+    const { interests, budget, destinationTypes } = req.query;
+
+    console.log("Received preferences:", {
+      interests: interests || "not provided",
+      budget: budget || "not provided",
+      destinationTypes: destinationTypes || "not provided",
+    });
+
+    // Parse the query parameters
+    const userInterests = interests ? interests.split(",") : [];
+    const userBudget = budget || "moderate";
+    const userDestTypes = destinationTypes ? destinationTypes.split(",") : [];
+
+    // Simulate user preferences and history
+    // In a real app, this would come from a database based on the authenticated user
     const userPreferences = {
       visitedDestinations: ["Paris", "London", "Barcelona"],
-      topActivities: ["Museums", "History", "Food", "Architecture"],
-      avgBudget: 1200,
+      topActivities:
+        userInterests.length > 0
+          ? userInterests
+          : ["Museums", "History", "Food", "Architecture"],
+      avgBudget:
+        userBudget === "luxury" ? 3000 : userBudget === "moderate" ? 1500 : 800,
       preferredHotelTypes: ["Boutique", "Mid-range"],
+      // Add destination types if provided
+      preferredDestinationTypes: userDestTypes.length > 0 ? userDestTypes : [],
     };
 
-    // Mock personalized recommendations based on user preferences
-    const personalizedRecommendations = {
-      destinations: [
-        {
-          name: "Rome",
-          country: "Italy",
-          reason:
-            "Based on your interest in history, architecture and previous trips to European cities like Paris and Barcelona.",
-          bestTimeToVisit: "April to June, September to October",
-          budgetRange: "$120-180 per day",
-          recommendedActivities: [
-            "Visit the Colosseum and Roman Forum",
-            "Explore Vatican Museums",
-            "Food tour in Trastevere",
-            "Day trip to Pompeii",
-          ],
-          suggestedHotel: "Hotel Artemide (boutique, mid-range)",
-        },
-        {
-          name: "Vienna",
-          country: "Austria",
-          reason:
-            "Matches your interest in museums, history and architecture with a similar cultural atmosphere to cities you've enjoyed.",
-          bestTimeToVisit: "April to May, September to October",
-          budgetRange: "$130-190 per day",
-          recommendedActivities: [
-            "Visit Schönbrunn Palace",
-            "Explore Belvedere Museum",
-            "Vienna Opera House tour",
-            "Coffee house culture experience",
-          ],
-          suggestedHotel: "Hotel Das Tyrol (boutique, mid-range)",
-        },
-        {
-          name: "Prague",
-          country: "Czech Republic",
-          reason:
-            "Offers the historical architecture and cultural experiences you enjoy at a lower price point than previous destinations.",
-          bestTimeToVisit: "March to May, September to November",
-          budgetRange: "$90-150 per day",
-          recommendedActivities: [
-            "Explore Prague Castle",
-            "Walk across Charles Bridge",
-            "Visit Old Town Square",
-            "Prague food tour",
-          ],
-          suggestedHotel: "BoHo Prague Hotel (boutique, mid-range)",
-        },
-      ],
-    };
+    // Generate personalized destinations based on user preferences
+    const personalizedDestinations =
+      generatePersonalizedDestinations(userPreferences);
 
     // Return both user preferences and recommendations
     res.json({
       userPreferences,
-      personalizedRecommendations,
+      personalizedRecommendations: {
+        destinations: personalizedDestinations,
+      },
     });
   } catch (error) {
     console.error("Error generating personalized recommendations:", error);
@@ -146,6 +121,222 @@ app.get("/api/personalized-recommendations", async (req, res) => {
     });
   }
 });
+
+// Helper function to generate personalized destination recommendations
+const generatePersonalizedDestinations = (userPreferences) => {
+  // Collection of possible destinations with their attributes
+  const destinationDatabase = [
+    {
+      name: "Rome",
+      country: "Italy",
+      categories: ["Culture", "History", "Food", "Architecture"],
+      budgetCategory: "moderate",
+      destinationType: "city",
+      image: "https://images.unsplash.com/photo-1552832230-c0197dd311b5",
+      reason: "Matches your interest in history and architecture",
+      bestTimeToVisit: "April to June, September to October",
+      budgetRange: "$120-180 per day",
+      recommendedActivities: [
+        "Visit the Colosseum and Roman Forum",
+        "Explore Vatican Museums",
+        "Food tour in Trastevere",
+        "Day trip to Pompeii",
+      ],
+      suggestedHotel: "Hotel Artemide (boutique, mid-range)",
+    },
+    {
+      name: "Vienna",
+      country: "Austria",
+      categories: ["Culture", "History", "Museums", "Music", "Architecture"],
+      budgetCategory: "moderate",
+      destinationType: "city",
+      image: "https://images.unsplash.com/photo-1516550893885-985c994c8609",
+      reason: "Perfect for your interest in museums and architecture",
+      bestTimeToVisit: "April to May, September to October",
+      budgetRange: "$130-190 per day",
+      recommendedActivities: [
+        "Visit Schönbrunn Palace",
+        "Explore Belvedere Museum",
+        "Vienna Opera House tour",
+        "Coffee house culture experience",
+      ],
+      suggestedHotel: "Hotel Das Tyrol (boutique, mid-range)",
+    },
+    {
+      name: "Prague",
+      country: "Czech Republic",
+      categories: [
+        "History",
+        "Architecture",
+        "Culture",
+        "Beer",
+        "Budget-friendly",
+      ],
+      budgetCategory: "budget",
+      destinationType: "city",
+      image: "https://images.unsplash.com/photo-1541849546-216549ae216d",
+      reason: "Offers historical architecture at an affordable price",
+      bestTimeToVisit: "March to May, September to November",
+      budgetRange: "$90-150 per day",
+      recommendedActivities: [
+        "Explore Prague Castle",
+        "Walk across Charles Bridge",
+        "Visit Old Town Square",
+        "Prague food tour",
+      ],
+      suggestedHotel: "BoHo Prague Hotel (boutique, mid-range)",
+    },
+    {
+      name: "Bali",
+      country: "Indonesia",
+      categories: ["Beaches", "Nature", "Relaxation", "Wellness", "Adventure"],
+      budgetCategory: "budget",
+      destinationType: "island",
+      image: "https://images.unsplash.com/photo-1537996194471-e657df975ab4",
+      reason: "Perfect for relaxation and nature exploration",
+      bestTimeToVisit: "April to October",
+      budgetRange: "$70-150 per day",
+      recommendedActivities: [
+        "Visit Ubud temples",
+        "Relax on Kuta Beach",
+        "Take a yoga class in Ubud",
+        "Rice terrace hiking",
+      ],
+      suggestedHotel: "Ubud Village Hotel (boutique, mid-range)",
+    },
+    {
+      name: "Santorini",
+      country: "Greece",
+      categories: ["Beaches", "Relaxation", "Views", "Romantic", "Food"],
+      budgetCategory: "luxury",
+      destinationType: "island",
+      image: "https://images.unsplash.com/photo-1507501336603-6e31db2be093",
+      reason: "Known for stunning views and romantic atmosphere",
+      bestTimeToVisit: "April to May, September to October",
+      budgetRange: "$200-300 per day",
+      recommendedActivities: [
+        "Watch sunset in Oia",
+        "Visit black sand beaches",
+        "Wine tasting tour",
+        "Boat tour to volcanic islands",
+      ],
+      suggestedHotel: "Andronis Luxury Suites (luxury)",
+    },
+    {
+      name: "New York City",
+      country: "United States",
+      categories: ["Urban", "Shopping", "Museums", "Food", "Nightlife"],
+      budgetCategory: "luxury",
+      destinationType: "city",
+      image: "https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9",
+      reason: "Matches your urban exploration preferences",
+      bestTimeToVisit: "April to June, September to November",
+      budgetRange: "$200-350 per day",
+      recommendedActivities: [
+        "Visit Metropolitan Museum of Art",
+        "Walk through Central Park",
+        "Broadway show experience",
+        "Food tour in different neighborhoods",
+      ],
+      suggestedHotel: "Archer Hotel (boutique, luxury)",
+    },
+    {
+      name: "Swiss Alps",
+      country: "Switzerland",
+      categories: [
+        "Mountains",
+        "Nature",
+        "Adventure",
+        "Hiking",
+        "Winter Sports",
+      ],
+      budgetCategory: "luxury",
+      destinationType: "mountains",
+      image: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b",
+      reason: "Perfect for outdoor adventure enthusiasts",
+      bestTimeToVisit:
+        "December to March (winter sports), June to September (hiking)",
+      budgetRange: "$200-300 per day",
+      recommendedActivities: [
+        "Ski in world-class resorts",
+        "Take the Glacier Express",
+        "Hike in the mountains",
+        "Visit picturesque alpine villages",
+      ],
+      suggestedHotel: "Hotel Belvedere Grindelwald (mountain resort)",
+    },
+    {
+      name: "Kyoto",
+      country: "Japan",
+      categories: ["Culture", "History", "Food", "Temples", "Nature"],
+      budgetCategory: "moderate",
+      destinationType: "city",
+      image: "https://images.unsplash.com/photo-1545569341-9eb8b30979d9",
+      reason: "Rich in cultural and historical experiences",
+      bestTimeToVisit: "March to May, October to November",
+      budgetRange: "$150-220 per day",
+      recommendedActivities: [
+        "Visit Fushimi Inari Shrine",
+        "Explore Arashiyama Bamboo Grove",
+        "Traditional tea ceremony",
+        "Kimono experience",
+      ],
+      suggestedHotel: "The Celestine Kyoto Gion (boutique, moderate)",
+    },
+  ];
+
+  // Scoring system based on preference matches
+  const scoredDestinations = destinationDatabase.map((destination) => {
+    let score = 0;
+
+    // Check interest matches
+    userPreferences.topActivities.forEach((interest) => {
+      if (
+        destination.categories.some(
+          (cat) =>
+            cat.toLowerCase() === interest.toLowerCase() ||
+            cat.toLowerCase().includes(interest.toLowerCase())
+        )
+      ) {
+        score += 3;
+      }
+    });
+
+    // Check budget match
+    if (
+      destination.budgetCategory === userPreferences.avgBudget ||
+      (userPreferences.avgBudget === "luxury" &&
+        destination.budgetCategory === "moderate") ||
+      (userPreferences.avgBudget === "moderate" &&
+        destination.budgetCategory === "budget")
+    ) {
+      score += 2;
+    }
+
+    // Check if destination type matches preferences
+    if (
+      userPreferences.preferredDestinationTypes.length > 0 &&
+      userPreferences.preferredDestinationTypes.some((type) =>
+        destination.destinationType.toLowerCase().includes(type.toLowerCase())
+      )
+    ) {
+      score += 3;
+    }
+
+    // Penalize for already visited destinations
+    if (userPreferences.visitedDestinations.includes(destination.name)) {
+      score -= 10;
+    }
+
+    return {
+      ...destination,
+      score,
+    };
+  });
+
+  // Sort by score and return top results
+  return scoredDestinations.sort((a, b) => b.score - a.score).slice(0, 3);
+};
 
 // Itinerary Optimization Endpoint
 app.post("/api/optimize-itinerary", async (req, res) => {

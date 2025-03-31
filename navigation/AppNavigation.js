@@ -24,6 +24,8 @@ import AllHotels from "../screens/AllHotels";
 import AllAttractions from "../screens/AllAttractions";
 import TransportOptions from "../screens/TransportOptions";
 import AllDestinations from "../screens/AllDestinations";
+// Import User Preferences Onboarding
+import UserPreferencesOnboarding from "../screens/UserPreferencesOnboarding";
 
 // Import our new AI feature screens
 import PersonalizedRecommendations from "../screens/PersonalizedRecommendations";
@@ -112,6 +114,11 @@ const AppNavigation = () => {
         <Stack.Screen
           name="AllDestinations"
           component={AllDestinations}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="UserPreferencesOnboarding"
+          component={UserPreferencesOnboarding}
           options={{ headerShown: false }}
         />
 

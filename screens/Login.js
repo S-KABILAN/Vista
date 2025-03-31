@@ -83,32 +83,23 @@ const Login = ({ navigation }) => {
     SplashScreen.hideAsync();
   }
 
-  const handleSignIn = async () => {
+  const handleLogin = async () => {
     if (!email || !password) {
-      setError("Please enter both email and password");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Error", "Please enter both email and password");
       return;
     }
 
     setLoading(true);
-    setError("");
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-
     try {
-      console.log("Logging in with email:", email);
       const result = await login(email, password);
-
-      if (!result.success) {
-        setError(result.message || "Login failed");
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      if (result.success) {
+        // DO NOT navigate here - App.js will handle navigation based on onboarding status
+        console.log("Login successful");
       } else {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        // Navigation is handled by the App.js based on auth state
+        Alert.alert("Login Failed", result.message);
       }
     } catch (error) {
-      setError("Login failed. Please try again.");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      console.error("Login failed:", error);
+      Alert.alert("Error", error.message);
     } finally {
       setLoading(false);
     }
@@ -301,7 +292,7 @@ const Login = ({ navigation }) => {
 
                     {/* Login button */}
                     <LoginButton
-                      handleSignIn={handleSignIn}
+                      handleSignIn={handleLogin}
                       isLoading={loading || authLoading}
                       buttonText="SIGN IN"
                     />
