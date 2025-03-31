@@ -184,23 +184,19 @@ const Profile = ({ navigation }) => {
           <Text style={styles.sectionTitle}>Travel Preferences</Text>
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() =>
-              Alert.alert("Coming Soon", "This feature will be available soon!")
-            }
+            onPress={() => navigation.navigate("AllTrips")}
           >
             <MaterialIcons name="flight" size={24} color="#3498db" />
-            <Text style={styles.menuItemText}>Travel Preferences</Text>
+            <Text style={styles.menuItemText}>My Trips</Text>
             <AntDesign name="right" size={18} color="#ccc" />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() =>
-              Alert.alert("Coming Soon", "This feature will be available soon!")
-            }
+            onPress={() => navigation.navigate("TravelTips")}
           >
-            <MaterialIcons name="favorite" size={24} color="#3498db" />
-            <Text style={styles.menuItemText}>Saved Destinations</Text>
+            <MaterialIcons name="lightbulb" size={24} color="#3498db" />
+            <Text style={styles.menuItemText}>Travel Tips</Text>
             <AntDesign name="right" size={18} color="#ccc" />
           </TouchableOpacity>
 
@@ -210,6 +206,17 @@ const Profile = ({ navigation }) => {
           >
             <MaterialIcons name="bookmark" size={24} color="#3498db" />
             <Text style={styles.menuItemText}>Saved Travel Plans</Text>
+            <AntDesign name="right" size={18} color="#ccc" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() =>
+              navigation.navigate("Filters", { returnScreen: "Profile" })
+            }
+          >
+            <MaterialIcons name="filter-list" size={24} color="#3498db" />
+            <Text style={styles.menuItemText}>Trip Filters</Text>
             <AntDesign name="right" size={18} color="#ccc" />
           </TouchableOpacity>
         </View>

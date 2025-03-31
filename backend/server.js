@@ -12,6 +12,7 @@ const authRoutes = require("./routes/auth");
 // Import the users routes
 const userRoutes = require("./routes/users");
 const travelPlanRoutes = require("./routes/travelPlans");
+const userPreferencesRoutes = require("./routes/userPreferences");
 const { configurePassport } = require("./config/passport");
 const JwtStrategy = require("passport-jwt").Strategy;
 const ExtractJwt = require("passport-jwt").ExtractJwt;
@@ -67,38 +68,97 @@ app.use("/api/users", userRoutes); // Enable users routes
 app.use("/api/travel-plans", travelPlanRoutes);
 app.use("/api/hotels", hotelRoutes);
 app.use("/api/flights", flightRoutes);
+app.use("/api/preferences", userPreferencesRoutes); // Add user preferences routes
 
 // ====== AI FEATURE ROUTES ======
 
 // Personalized Recommendations Endpoint
 app.get("/api/personalized-recommendations", async (req, res) => {
   try {
-    const { interests, budget, destinationTypes } = req.query;
+    const { interests, budget, destinationTypes, visitedCountries } = req.query;
 
+    // Log received preferences for debugging
     console.log("Received preferences:", {
       interests: interests || "not provided",
       budget: budget || "not provided",
       destinationTypes: destinationTypes || "not provided",
+      visitedCountries: visitedCountries || "not provided",
     });
 
     // Parse the query parameters
     const userInterests = interests ? interests.split(",") : [];
     const userBudget = budget || "moderate";
     const userDestTypes = destinationTypes ? destinationTypes.split(",") : [];
+    const userVisitedCountries = visitedCountries
+      ? visitedCountries.split(",")
+      : [];
 
-    // Simulate user preferences and history
-    // In a real app, this would come from a database based on the authenticated user
+    // Try to get user preferences from token if available
+    let userId = null;
+    let userPreferencesFromDB = null;
+
+    // Check for auth header
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      try {
+        const token = authHeader.substring(7);
+        const decoded = jwt.verify(
+          token,
+          process.env.JWT_SECRET || "yoursecretkey"
+        );
+        userId = decoded.id;
+
+        // If we have a user ID, try to get their full preferences from DB
+        if (userId) {
+          const UserPreference = require("./models/UserPreference");
+          userPreferencesFromDB = await UserPreference.findOne({ userId });
+        }
+      } catch (err) {
+        console.log(
+          "Error decoding token, using query params only:",
+          err.message
+        );
+      }
+    }
+
+    // Combine query params with DB preferences, with query params taking precedence
     const userPreferences = {
-      visitedDestinations: ["Paris", "London", "Barcelona"],
-      topActivities:
+      // If we have DB preferences, use those as base, otherwise empty object
+      ...(userPreferencesFromDB || {}),
+
+      // Basic preferences, using either query params or DB values
+      travelInterests:
         userInterests.length > 0
           ? userInterests
-          : ["Museums", "History", "Food", "Architecture"],
-      avgBudget:
-        userBudget === "luxury" ? 3000 : userBudget === "moderate" ? 1500 : 800,
-      preferredHotelTypes: ["Boutique", "Mid-range"],
-      // Add destination types if provided
-      preferredDestinationTypes: userDestTypes.length > 0 ? userDestTypes : [],
+          : userPreferencesFromDB?.travelInterests || [
+              "Culture",
+              "Food",
+              "Nature",
+            ],
+
+      // Budget preference
+      budgetCategory:
+        userBudget || userPreferencesFromDB?.budgetRange || "moderate",
+
+      // Destination types
+      preferredDestinationTypes:
+        userDestTypes.length > 0
+          ? userDestTypes
+          : userPreferencesFromDB?.preferredDestinationTypes || [],
+
+      // Visited countries to exclude
+      visitedDestinations:
+        userVisitedCountries.length > 0
+          ? userVisitedCountries
+          : userPreferencesFromDB?.visitedCountries || [],
+
+      // Other preferences with defaults
+      preferredActivities: userPreferencesFromDB?.preferredActivities || [],
+      preferredAccommodationTypes:
+        userPreferencesFromDB?.preferredAccommodationTypes || [
+          "Mid-range",
+          "Boutique",
+        ],
     };
 
     // Generate personalized destinations based on user preferences
@@ -285,57 +345,81 @@ const generatePersonalizedDestinations = (userPreferences) => {
     },
   ];
 
-  // Scoring system based on preference matches
-  const scoredDestinations = destinationDatabase.map((destination) => {
-    let score = 0;
+  // Filter destinations based on user preferences
+  let recommendedDestinations = [...destinationDatabase];
 
-    // Check interest matches
-    userPreferences.topActivities.forEach((interest) => {
+  // Filter out already visited destinations
+  if (
+    userPreferences.visitedDestinations &&
+    userPreferences.visitedDestinations.length > 0
+  ) {
+    recommendedDestinations = recommendedDestinations.filter(
+      (destination) =>
+        !userPreferences.visitedDestinations.some(
+          (visited) =>
+            destination.name.toLowerCase().includes(visited.toLowerCase()) ||
+            destination.country.toLowerCase().includes(visited.toLowerCase())
+        )
+    );
+  }
+
+  // Match based on budget category if specified
+  if (
+    userPreferences.budgetCategory &&
+    userPreferences.budgetCategory !== "flexible"
+  ) {
+    recommendedDestinations = recommendedDestinations.filter(
+      (destination) =>
+        destination.budgetCategory === userPreferences.budgetCategory
+    );
+  }
+
+  // Match based on destination types (city, island, mountain, etc.)
+  if (
+    userPreferences.preferredDestinationTypes &&
+    userPreferences.preferredDestinationTypes.length > 0
+  ) {
+    // Only filter if we would still have destinations left
+    const typeFiltered = recommendedDestinations.filter((destination) =>
+      userPreferences.preferredDestinationTypes.includes(
+        destination.destinationType
+      )
+    );
+
+    // Only apply this filter if it wouldn't eliminate all options
+    if (typeFiltered.length > 0) {
+      recommendedDestinations = typeFiltered;
+    }
+  }
+
+  // Calculate a relevance score for each destination based on interest matching
+  recommendedDestinations = recommendedDestinations.map((destination) => {
+    // Start with a base score
+    let relevanceScore = 0;
+
+    // Increase score for each matching interest/category
+    userPreferences.travelInterests.forEach((interest) => {
       if (
-        destination.categories.some(
-          (cat) =>
-            cat.toLowerCase() === interest.toLowerCase() ||
-            cat.toLowerCase().includes(interest.toLowerCase())
+        destination.categories.some((category) =>
+          category.toLowerCase().includes(interest.toLowerCase())
         )
       ) {
-        score += 3;
+        relevanceScore += 2;
       }
     });
 
-    // Check budget match
-    if (
-      destination.budgetCategory === userPreferences.avgBudget ||
-      (userPreferences.avgBudget === "luxury" &&
-        destination.budgetCategory === "moderate") ||
-      (userPreferences.avgBudget === "moderate" &&
-        destination.budgetCategory === "budget")
-    ) {
-      score += 2;
-    }
-
-    // Check if destination type matches preferences
-    if (
-      userPreferences.preferredDestinationTypes.length > 0 &&
-      userPreferences.preferredDestinationTypes.some((type) =>
-        destination.destinationType.toLowerCase().includes(type.toLowerCase())
-      )
-    ) {
-      score += 3;
-    }
-
-    // Penalize for already visited destinations
-    if (userPreferences.visitedDestinations.includes(destination.name)) {
-      score -= 10;
-    }
-
+    // Include the score in the destination object
     return {
       ...destination,
-      score,
+      relevanceScore,
     };
   });
 
-  // Sort by score and return top results
-  return scoredDestinations.sort((a, b) => b.score - a.score).slice(0, 3);
+  // Sort by relevance score (highest first)
+  recommendedDestinations.sort((a, b) => b.relevanceScore - a.relevanceScore);
+
+  // Return top recommendations
+  return recommendedDestinations.slice(0, 6);
 };
 
 // Itinerary Optimization Endpoint
@@ -895,10 +979,12 @@ app.get("/ping", (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
+// Start the server
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`For local access: http://localhost:${PORT}`);
+  console.log(`Local access: http://localhost:${PORT}`);
+  console.log(`For device access: http://YOUR_MACHINE_IP:${PORT}`);
   console.log(
-    `For device access: Use your machine's IP address and port ${PORT}`
+    `Make sure frontend config.js and apiConfig.js have matching URLs`
   );
 });

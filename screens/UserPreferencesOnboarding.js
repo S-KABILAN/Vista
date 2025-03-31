@@ -87,9 +87,20 @@ const UserPreferencesOnboarding = () => {
   const handleFinish = async () => {
     try {
       setSavingData(true);
+      console.log("Saving user preferences:", formData);
 
       // Save the user preferences
-      await saveUserPreferences(formData);
+      const saveResult = await saveUserPreferences(formData);
+
+      if (!saveResult.success) {
+        console.error("Error saving preferences:", saveResult);
+        Alert.alert(
+          "Error",
+          "Could not save your preferences. Please try again."
+        );
+        setSavingData(false);
+        return;
+      }
 
       // Mark onboarding as complete
       const result = await completeOnboarding();
@@ -137,6 +148,19 @@ const UserPreferencesOnboarding = () => {
   const handleSkip = async () => {
     try {
       setSavingData(true);
+
+      // Even when skipping, we should save default preferences
+      const defaultPrefs = {
+        travelInterests: [],
+        budgetRange: "moderate",
+        preferredDestinationTypes: [],
+        preferredAccommodationTypes: [],
+        preferredActivities: [],
+        travelStyle: "",
+        visitedCountries: [],
+      };
+
+      await saveUserPreferences(defaultPrefs);
       const result = await completeOnboarding();
 
       if (result.success) {

@@ -33,6 +33,12 @@ import CulturalInsights from "../screens/CulturalInsights";
 import ItineraryOptimizer from "../screens/ItineraryOptimizer";
 import WeatherInsights from "../screens/WeatherInsights";
 
+// Import newly implemented screens
+import TripDetails from "../screens/TripDetails";
+import AllTrips from "../screens/AllTrips";
+import Filters from "../screens/Filters";
+import TravelTips from "../screens/TravelTips";
+
 // Import custom bottom navigation
 import BottomNavigation from "../components/BottomNavigation";
 
@@ -144,11 +150,27 @@ const AppNavigation = () => {
           options={{ headerShown: false }}
         />
 
-        {/* Keep these commented out until they're implemented */}
-        {/* <Stack.Screen name="TripDetails" component={TripDetails} /> */}
-        {/* <Stack.Screen name="AllTrips" component={AllTrips} /> */}
-        {/* <Stack.Screen name="Filters" component={Filters} /> */}
-        {/* <Stack.Screen name="TravelTips" component={TravelTips} /> */}
+        {/* Newly implemented screens */}
+        <Stack.Screen
+          name="TripDetails"
+          component={TripDetails}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="AllTrips"
+          component={AllTrips}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Filters"
+          component={Filters}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="TravelTips"
+          component={TravelTips}
+          options={{ headerShown: false }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

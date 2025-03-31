@@ -7,11 +7,19 @@ import {
   Image,
   Touchable,
   TouchableOpacity,
+  FlatList,
+  Dimensions,
 } from "react-native";
 import { useFonts } from "expo-font";
 import { BlurView } from "expo-blur";
 import * as SplashScreen from "expo-splash-screen";
-import { useNavigation, useRoute, useIsFocused } from "@react-navigation/native";
+import {
+  useNavigation,
+  useRoute,
+  useIsFocused,
+} from "@react-navigation/native";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 
 const imageMapping = {
   1: require("../assets/Manila1.jpg"),
@@ -20,8 +28,10 @@ const imageMapping = {
   // Add more mappings as needed
 };
 
-const RecommendedPlaces = () => {
-  const [places, setPlaces] = useState([]);
+const { width } = Dimensions.get("window");
+const cardWidth = width * 0.75;
+
+const RecommendedPlaces = ({ places, onPlacePress, userPreferences }) => {
   const [fontsLoaded] = useFonts({
     Candara: require("../assets/Candara.ttf"),
   });
@@ -56,148 +66,252 @@ const RecommendedPlaces = () => {
   };
 
   const routetoPlace = (place) => {
-    navigation.navigate('PlaceGo', {
+    navigation.navigate("PlaceGo", {
       placeid: place.id,
       place: place.place,
       locationimage: place.imageUrl,
       latitude: place.latitude,
       longitude: place.longitude,
     });
-    }
+  };
+
+  const renderItem = ({ item }) => (
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => onPlacePress(item)}
+      activeOpacity={0.9}
+    >
+      <Image source={{ uri: item.image }} style={styles.image} />
+
+      <LinearGradient
+        colors={["transparent", "rgba(0,0,0,0.8)"]}
+        style={styles.gradient}
+      >
+        <View style={styles.contentContainer}>
+          <View style={styles.locationContainer}>
+            <Text style={styles.locationName}>{item.name}</Text>
+            <Text style={styles.locationCountry}>{item.country}</Text>
+          </View>
+
+          {item.reason && (
+            <View style={styles.reasonContainer}>
+              <Text style={styles.reasonText}>{item.reason}</Text>
+            </View>
+          )}
+
+          <View style={styles.infoContainer}>
+            {item.budgetCategory && (
+              <View style={styles.infoItem}>
+                <Ionicons
+                  name="wallet-outline"
+                  size={14}
+                  color="#fff"
+                  style={styles.infoIcon}
+                />
+                <Text style={styles.infoText}>
+                  {item.budgetCategory === "luxury"
+                    ? "Luxury"
+                    : item.budgetCategory === "moderate"
+                    ? "Mid-range"
+                    : "Budget"}
+                </Text>
+              </View>
+            )}
+
+            {item.destinationType && (
+              <View style={styles.infoItem}>
+                <Ionicons
+                  name={
+                    item.destinationType === "city"
+                      ? "business-outline"
+                      : item.destinationType === "island"
+                      ? "water-outline"
+                      : item.destinationType === "mountain"
+                      ? "triangle-outline"
+                      : "earth-outline"
+                  }
+                  size={14}
+                  color="#fff"
+                  style={styles.infoIcon}
+                />
+                <Text style={styles.infoText}>
+                  {item.destinationType.charAt(0).toUpperCase() +
+                    item.destinationType.slice(1)}
+                </Text>
+              </View>
+            )}
+
+            {item.bestTimeToVisit && (
+              <View style={styles.infoItem}>
+                <Ionicons
+                  name="calendar-outline"
+                  size={14}
+                  color="#fff"
+                  style={styles.infoIcon}
+                />
+                <Text style={styles.infoText} numberOfLines={1}>
+                  Best: {item.bestTimeToVisit.split(",")[0]}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </LinearGradient>
+
+      <View style={styles.matchIndicator}>
+        <Text style={styles.matchText}>
+          {item.relevanceScore > 5
+            ? "Perfect match"
+            : item.relevanceScore > 3
+            ? "Great match"
+            : "Good match"}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
 
   return (
-    <View style={styles.container3}>
-      <Text style={styles.title}>Recommended Places</Text>
-      <ScrollView horizontal ref={scrollViewRef}>
-        {places.map((place) => (
-          <TouchableOpacity
-            key={place.id}
-            style={styles.card}
-            intensity={10}
-            tint="light"
-          >
-            <Image source={imageMapping[place.id]} style={styles.image} />
-            <View style={styles.overlay}></View>
-            <View style={styles.textContainer}>
-              <Text style={styles.text1}>Trip to {place.place}</Text>
-              <Text style={styles.text2}>{place.locations} locations</Text>
-              <Text style={styles.text3}>
-                Starting from ${place.startingprice}
-              </Text>
-            </View>
-            <TouchableOpacity style={styles.circleView} onPress={() => routetoPlace(place)}>
-              <Image
-                source={require("../assets/Arrow.png")}
-                style={styles.arrow}
-              />
-            </TouchableOpacity>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Recommended for You</Text>
+        <TouchableOpacity>
+          <Text style={styles.viewAll}>View All</Text>
+        </TouchableOpacity>
+      </View>
+      <FlatList
+        data={places}
+        renderItem={renderItem}
+        keyExtractor={(item) => item.name}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.listContainer}
+        snapToInterval={cardWidth + 20}
+        decelerationRate="fast"
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
-    width: 180,
-    height: 220,
-    borderWidth: 0.4,
-    borderColor: "#FFF",
-    backgroundColor: "rgba(255, 255, 255, 0.10)",
+  container: {
+    marginVertical: 15,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginHorizontal: 20,
-    borderBottomRightRadius: 20,
-    borderTopLeftRadius: 20,
-    borderBottomLeftRadius: 4,
-    borderTopRightRadius: 4,
-    position: "relative",
+    marginBottom: 15,
   },
-  overlay: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.3)", // Black overlay with 50% opacity
-    borderBottomRightRadius: 20,
-    borderTopLeftRadius: 20,
-    borderBottomLeftRadius: 4,
-    borderTopRightRadius: 4,
+  title: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#333",
   },
-  textContainer: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 10,
-  },
-  text1: {
-    color: "#FFF",
+  viewAll: {
+    color: "#3498db",
     fontSize: 14,
-    fontFamily: "Candara",
   },
-  text2: {
-    color: "#C7C7C7",
-    fontSize: 12,
-    fontFamily: "Candara",
+  placeholderContainer: {
+    height: 250,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f8f9fa",
+    marginHorizontal: 20,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "#eee",
   },
-  text3: {
-    color: "#FFF",
-    fontSize: 12,
-    fontFamily: "Candara",
+  placeholderText: {
+    color: "#aaa",
+    fontSize: 14,
+  },
+  listContainer: {
+    paddingHorizontal: 15,
+  },
+  card: {
+    width: cardWidth,
+    height: 250,
+    borderRadius: 15,
+    marginHorizontal: 10,
+    overflow: "hidden",
+    backgroundColor: "#f8f9fa",
+    position: "relative",
   },
   image: {
     width: "100%",
     height: "100%",
     resizeMode: "cover",
+  },
+  gradient: {
     position: "absolute",
-    borderBottomRightRadius: 20,
-    borderTopLeftRadius: 20,
-    borderBottomLeftRadius: 4,
-    borderTopRightRadius: 4,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: "60%",
+    borderBottomLeftRadius: 15,
+    borderBottomRightRadius: 15,
+    padding: 15,
+    justifyContent: "flex-end",
   },
-  button: {
-    height: 30,
-    width: 150,
-    backgroundColor: "black",
-    left: 10,
-    top: 12,
-    borderRadius: 16,
-    borderColor: "white",
+  contentContainer: {
+    justifyContent: "flex-end",
   },
-  buttontext: {
-    color: "white",
-    fontSize: 8,
-    left: 58,
-    fontFamily: "Candara",
-    top: 9,
+  locationContainer: {
+    marginBottom: 6,
   },
-  container3: {
-    marginTop: 900,
-  },
-  title: {
-    fontFamily: "Candara",
+  locationName: {
+    fontSize: 20,
     fontWeight: "bold",
-    textAlign: "left",
-    marginBottom: 15,
-    marginLeft: 20,
+    color: "#fff",
   },
-  circleView: {
-    width: 35,
-    height: 35,
-    borderRadius: 50,
-    backgroundColor: "rgba(217, 217, 217, 0.4)",
-    justifyContent: "center",
+  locationCountry: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.9)",
+    marginTop: 2,
+  },
+  reasonContainer: {
+    marginBottom: 10,
+  },
+  reasonText: {
+    fontSize: 13,
+    color: "rgba(255,255,255,0.9)",
+    fontStyle: "italic",
+  },
+  infoContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  infoItem: {
+    flexDirection: "row",
     alignItems: "center",
-    position: "absolute",
-    bottom: 10,
-    right: 10,
-    zIndex: 1,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    marginRight: 8,
+    marginBottom: 5,
   },
-  arrow: {
-    width: 14,
-    height: 14,
-    resizeMode: "contain",
+  infoIcon: {
+    marginRight: 4,
+  },
+  infoText: {
+    fontSize: 12,
+    color: "#fff",
+  },
+  matchIndicator: {
+    position: "absolute",
+    top: 15,
+    right: 15,
+    backgroundColor: "rgba(52, 152, 219, 0.9)",
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+  },
+  matchText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "bold",
   },
 });
 

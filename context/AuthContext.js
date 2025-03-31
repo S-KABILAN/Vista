@@ -189,8 +189,11 @@ export const AuthProvider = ({ children }) => {
 
         setUser(userData);
 
-        // Important: Reset onboarding status in AsyncStorage to ensure the check happens
+        // Important: Reset onboarding status in AsyncStorage to ensure preferences will be fetched from API
         await AsyncStorage.removeItem(`userPreferences_${userData.id}`);
+
+        // Set the token in axios defaults
+        axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
 
         return { success: true };
       } else {

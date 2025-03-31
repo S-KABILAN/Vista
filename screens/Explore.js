@@ -527,6 +527,24 @@ const Explore = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
+      <View style={styles.tipsBannerContainer}>
+        <TouchableOpacity
+          style={styles.tipsBanner}
+          onPress={() => navigation.navigate("TravelTips")}
+        >
+          <View style={styles.tipsIconContainer}>
+            <Ionicons name="bulb-outline" size={24} color="#FFFFFF" />
+          </View>
+          <View style={styles.tipsBannerContent}>
+            <Text style={styles.tipsBannerTitle}>Travel Tips & Advice</Text>
+            <Text style={styles.tipsBannerSubtitle}>
+              Expert guides for every destination
+            </Text>
+          </View>
+          <AntDesign name="arrowright" size={20} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.aiPlannerBanner}>
         <LinearGradient
           colors={["#3498db", "#2980b9"]}
@@ -1162,6 +1180,38 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     borderWidth: 1,
     borderColor: "#fff",
+  },
+  tipsBannerContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  tipsBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#4A80F0",
+    borderRadius: 12,
+    padding: 16,
+  },
+  tipsIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  tipsBannerContent: {
+    flex: 1,
+  },
+  tipsBannerTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#FFFFFF",
+  },
+  tipsBannerSubtitle: {
+    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.8)",
   },
 });
 

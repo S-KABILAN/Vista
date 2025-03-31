@@ -146,16 +146,19 @@ const Home = ({ route }) => {
 
   const fetchRecommendations = async () => {
     try {
-      const userInterests = preferences.travelInterests || [];
-      const userBudget = preferences.budgetRange || "moderate";
-      const preferredDestTypes = preferences.preferredDestinationTypes || [];
+      const userInterests = preferences?.travelInterests || [];
+      const userBudget = preferences?.budgetRange || "moderate";
+      const visitedCountries = preferences?.visitedCountries || [];
+      const preferredDestTypes = preferences?.preferredDestinationTypes || [];
 
       console.log("Fetching recommendations based on user preferences:", {
         interests: userInterests,
         budget: userBudget,
+        visitedCountries: visitedCountries,
         destinationTypes: preferredDestTypes,
       });
 
+      // Use our backend API for generating recommendations
       const response = await axios.get(
         `${BACKEND_URL}/api/personalized-recommendations`,
         {
@@ -163,6 +166,7 @@ const Home = ({ route }) => {
             interests: userInterests.join(","),
             budget: userBudget,
             destinationTypes: preferredDestTypes.join(","),
+            visitedCountries: visitedCountries.join(","),
           },
         }
       );
@@ -211,8 +215,11 @@ const Home = ({ route }) => {
   };
 
   useEffect(() => {
-    fetchRecommendations();
-  }, [preferences]);
+    if (user) {
+      fetchCurrentLocation();
+      fetchRecommendations();
+    }
+  }, [user, preferences]);
 
   useEffect(() => {
     if (route.params?.selectedLocation) {
@@ -357,7 +364,7 @@ const Home = ({ route }) => {
   };
 
   const navigateToTripDetails = (trip) => {
-    navigation.navigate("TripDetails", { trip });
+    navigation.navigate("TripDetails", { tripId: trip._id });
   };
 
   const renderUpcomingTrip = ({ item }) => (
@@ -413,33 +420,42 @@ const Home = ({ route }) => {
 
   const renderRecommendation = ({ item }) => (
     <TouchableOpacity
-      style={styles.recommendationCard}
+      style={styles.recommendationItem}
       onPress={() => navigateToDestination(item)}
     >
       <Image source={{ uri: item.image }} style={styles.recommendationImage} />
-      <LinearGradient
-        colors={["transparent", "rgba(0,0,0,0.7)"]}
-        style={styles.recommendationGradient}
-      >
-        <View style={styles.recommendationContent}>
-          <View>
-            <Text style={styles.recommendationName}>{item.name}</Text>
-            <Text style={styles.recommendationCountry}>
-              <Ionicons
-                name="location-sharp"
-                size={12}
-                color="rgba(255,255,255,0.8)"
-              />{" "}
-              {item.country}
-            </Text>
-          </View>
-          <View style={styles.recommendationRating}>
-            <AntDesign name="star" size={14} color="#FFD700" />
-            <Text style={styles.recommendationRatingText}>{item.rating}</Text>
-          </View>
-        </View>
-      </LinearGradient>
+      <View style={styles.recommendationContent}>
+        <Text style={styles.recommendationName}>{item.name}</Text>
+        <Text style={styles.recommendationCountry}>{item.country}</Text>
+      </View>
     </TouchableOpacity>
+  );
+
+  const renderSections = () => (
+    <>
+      {/* Weather card */}
+      {currentWeather && (
+        <WeatherCards
+          currentLocation={currentLocation}
+          currentWeather={currentWeather}
+        />
+      )}
+
+      {/* Options */}
+      <HomeOptions />
+
+      {/* Personalized recommendations based on user preferences */}
+      <View style={styles.sectionContainer}>
+        <RecommendedPlaces
+          places={recommendations}
+          onPlacePress={navigateToDestination}
+          userPreferences={preferences}
+        />
+      </View>
+
+      {/* Render active component based on tab */}
+      {renderActiveComponent()}
+    </>
   );
 
   return (
@@ -934,7 +950,7 @@ const styles = StyleSheet.create({
     paddingLeft: 20,
     paddingRight: 5,
   },
-  recommendationCard: {
+  recommendationItem: {
     width: width * 0.6,
     height: 160,
     marginRight: 15,
@@ -950,15 +966,6 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
   },
-  recommendationGradient: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: "50%",
-    justifyContent: "flex-end",
-    padding: 15,
-  },
   recommendationContent: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -972,20 +979,6 @@ const styles = StyleSheet.create({
   recommendationCountry: {
     fontSize: 14,
     color: "rgba(255, 255, 255, 0.8)",
-  },
-  recommendationRating: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  recommendationRatingText: {
-    marginLeft: 4,
-    fontSize: 14,
-    color: "white",
-    fontWeight: "bold",
   },
   recentsList: {
     paddingLeft: 20,

@@ -71,9 +71,7 @@ const SavedTravelPlans = ({ navigation }) => {
   const renderTravelPlan = ({ item }) => (
     <TouchableOpacity
       style={styles.planCard}
-      onPress={() =>
-        navigation.navigate("TravelPlanDetail", { planId: item._id })
-      }
+      onPress={() => navigation.navigate("TripDetails", { tripId: item._id })}
     >
       <Text style={styles.destinationText}>{item.destination}</Text>
       <View style={styles.planDetails}>
@@ -114,6 +112,15 @@ const SavedTravelPlans = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={styles.headerContainer}>
+        <Text style={styles.headerTitle}>Saved Travel Plans</Text>
+        <TouchableOpacity
+          style={styles.viewAllButton}
+          onPress={() => navigation.navigate("AllTrips")}
+        >
+          <Text style={styles.viewAllText}>View All Trips</Text>
+        </TouchableOpacity>
+      </View>
       <FlatList
         data={travelPlans}
         renderItem={renderTravelPlan}
@@ -332,6 +339,17 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "bold",
+  },
+  viewAllButton: {
+    backgroundColor: "#4A80F0",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+  },
+  viewAllText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "600",
   },
 });
 
