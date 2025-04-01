@@ -48,6 +48,12 @@ export const UserPreferencesProvider = ({ children }) => {
 
   // Load saved preferences when user changes
   useEffect(() => {
+    console.log("UserPreferencesContext: User or auth token changed", {
+      userId: user?.id,
+      hasToken: !!authToken,
+      tokenLength: authToken?.length,
+    });
+
     if (user && authToken) {
       loadUserPreferences();
     } else {
@@ -63,6 +69,13 @@ export const UserPreferencesProvider = ({ children }) => {
 
       if (user?.id && authToken) {
         try {
+          // Ensure we're using the correct ID field
+          const userId = user._id || user.id;
+          console.log("Loading preferences from API with token:", {
+            userId,
+            tokenLength: authToken.length,
+          });
+
           // First try to load from the API
           const response = await axios.get(`${API_BASE_URL}/api/preferences`, {
             headers: {
@@ -76,7 +89,7 @@ export const UserPreferencesProvider = ({ children }) => {
 
             // Also update local storage
             await AsyncStorage.setItem(
-              `userPreferences_${user.id}`,
+              `userPreferences_${userId}`,
               JSON.stringify(response.data)
             );
 
@@ -84,19 +97,28 @@ export const UserPreferencesProvider = ({ children }) => {
             return;
           }
         } catch (apiError) {
-          console.error("Error loading preferences from API:", apiError);
+          console.error("Error loading preferences from API:", {
+            status: apiError.response?.status,
+            statusText: apiError.response?.statusText,
+            data: apiError.response?.data,
+            message: apiError.message,
+            tokenLength: authToken?.length,
+          });
 
           // Fall back to AsyncStorage if API fails
           try {
             const savedPrefs = await AsyncStorage.getItem(
-              `userPreferences_${user.id}`
+              `userPreferences_${user._id || user.id}`
             );
             if (savedPrefs) {
               const parsedPrefs = JSON.parse(savedPrefs);
               console.log("Loaded user preferences from storage:", parsedPrefs);
               setPreferences(parsedPrefs);
             } else {
-              console.log("No saved preferences found for user", user.id);
+              console.log(
+                "No saved preferences found for user",
+                user._id || user.id
+              );
               // Make sure onboarding will be shown by setting isOnboardingComplete to false
               setPreferences({
                 travelInterests: [],
@@ -140,6 +162,14 @@ export const UserPreferencesProvider = ({ children }) => {
 
       if (user?.id && authToken) {
         try {
+          // Ensure we're using the correct ID field
+          const userId = user._id || user.id;
+          console.log("Attempting to save preferences to API:", {
+            url: `${API_BASE_URL}/api/preferences`,
+            userId,
+            preferences: updatedPreferences,
+          });
+
           // Try to save to API first
           const response = await axios.post(
             `${API_BASE_URL}/api/preferences`,
@@ -152,29 +182,63 @@ export const UserPreferencesProvider = ({ children }) => {
             }
           );
 
-          console.log("Saved preferences to API:", response.data);
-        } catch (apiError) {
-          console.error(
-            "Error saving preferences to API:",
-            apiError.response?.data || apiError.message
+          console.log("API Response:", response.data);
+
+          // Also save to local storage as backup
+          await AsyncStorage.setItem(
+            `userPreferences_${userId}`,
+            JSON.stringify(updatedPreferences)
           );
-          // Still allow the function to continue even if API call fails
+
+          return { success: true, data: response.data };
+        } catch (apiError) {
+          console.error("Error saving preferences to API:", {
+            status: apiError.response?.status,
+            statusText: apiError.response?.statusText,
+            data: apiError.response?.data,
+            message: apiError.message,
+          });
+
+          // Save to local storage as backup even if API call fails
+          await AsyncStorage.setItem(
+            `userPreferences_${user._id || user.id}`,
+            JSON.stringify(updatedPreferences)
+          );
+
+          // Return error but mark as handled
+          return {
+            success: false,
+            handled: true,
+            message: `API Error: ${
+              apiError.response?.data?.message || apiError.message
+            }`,
+          };
+        }
+      } else {
+        console.warn("Cannot save to API: Missing user ID or auth token", {
+          userId: user?._id || user?.id,
+          hasToken: !!authToken,
+        });
+
+        // If there's a user ID but no token, save to local storage only
+        if (user?._id || user?.id) {
+          await AsyncStorage.setItem(
+            `userPreferences_${user._id || user.id}`,
+            JSON.stringify(updatedPreferences)
+          );
         }
 
-        // Also save to local storage as backup
-        await AsyncStorage.setItem(
-          `userPreferences_${user.id}`,
-          JSON.stringify(updatedPreferences)
-        );
-      } else {
-        console.warn("Cannot save to API: Missing user ID or auth token");
+        return {
+          success: false,
+          handled: true,
+          message: "Missing authentication. Saved to local storage only.",
+        };
       }
-
-      return { success: true };
     } catch (error) {
       console.error("Failed to save user preferences:", error);
       return {
         success: false,
+        handled: false,
         message: error.message,
       };
     } finally {
@@ -190,8 +254,16 @@ export const UserPreferencesProvider = ({ children }) => {
 
       if (user?.id && authToken) {
         try {
+          // Ensure we're using the correct ID field
+          const userId = user._id || user.id;
+          console.log("Attempting to complete onboarding:", {
+            url: `${API_BASE_URL}/api/preferences/complete-onboarding`,
+            userId,
+          });
+
           // First make sure preferences are saved
-          await saveUserPreferences(updatedPreferences);
+          const saveResult = await saveUserPreferences(updatedPreferences);
+          console.log("Save preferences result:", saveResult);
 
           // Then mark onboarding as complete in API
           const response = await axios.post(
@@ -205,30 +277,57 @@ export const UserPreferencesProvider = ({ children }) => {
             }
           );
 
-          console.log("Marked onboarding as complete in API:", response.data);
-        } catch (apiError) {
-          console.error(
-            "Error marking onboarding complete in API:",
-            apiError.response?.data || apiError.message
-          );
-        }
+          console.log("Complete onboarding API Response:", response.data);
 
-        // Also update local storage
-        await AsyncStorage.setItem(
-          `userPreferences_${user.id}`,
-          JSON.stringify(updatedPreferences)
-        );
+          // Also update local storage
+          await AsyncStorage.setItem(
+            `userPreferences_${userId}`,
+            JSON.stringify(updatedPreferences)
+          );
+
+          return { success: true, data: response.data };
+        } catch (apiError) {
+          console.error("Error marking onboarding complete in API:", {
+            status: apiError.response?.status,
+            statusText: apiError.response?.statusText,
+            data: apiError.response?.data,
+            message: apiError.message,
+          });
+
+          // Still update local storage
+          await AsyncStorage.setItem(
+            `userPreferences_${user._id || user.id}`,
+            JSON.stringify(updatedPreferences)
+          );
+
+          return {
+            success: false,
+            handled: true,
+            message: `API Error: ${
+              apiError.response?.data?.message || apiError.message
+            }`,
+          };
+        }
       } else {
         console.warn(
-          "Cannot complete onboarding in API: Missing user ID or auth token"
+          "Cannot complete onboarding in API: Missing user ID or auth token",
+          {
+            userId: user?._id || user?.id,
+            hasToken: !!authToken,
+          }
         );
-      }
 
-      return { success: true };
+        return {
+          success: false,
+          handled: true,
+          message: "Missing authentication. Saved to local storage only.",
+        };
+      }
     } catch (error) {
       console.error("Failed to complete onboarding:", error);
       return {
         success: false,
+        handled: false,
         message: error.message,
       };
     }
@@ -268,7 +367,7 @@ export const UserPreferencesProvider = ({ children }) => {
         }
 
         // Remove from local storage
-        await AsyncStorage.removeItem(`userPreferences_${user.id}`);
+        await AsyncStorage.removeItem(`userPreferences_${user._id || user.id}`);
       }
 
       return { success: true };

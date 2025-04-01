@@ -281,6 +281,7 @@ export const AuthProvider = ({ children }) => {
         loading,
         authError,
         isAuthenticated: !!user,
+        authToken: token,
         register,
         login,
         googleSignIn,

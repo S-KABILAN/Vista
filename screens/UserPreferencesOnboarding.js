@@ -94,12 +94,20 @@ const UserPreferencesOnboarding = () => {
 
       if (!saveResult.success) {
         console.error("Error saving preferences:", saveResult);
-        Alert.alert(
-          "Error",
-          "Could not save your preferences. Please try again."
-        );
-        setSavingData(false);
-        return;
+
+        // If the error was handled (saved to local storage), we can still proceed
+        if (saveResult.handled) {
+          console.log(
+            "Preferences saved to local storage, proceeding with onboarding completion"
+          );
+        } else {
+          Alert.alert(
+            "Error",
+            "Could not save your preferences. Please try again."
+          );
+          setSavingData(false);
+          return;
+        }
       }
 
       // Mark onboarding as complete

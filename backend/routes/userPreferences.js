@@ -42,10 +42,15 @@ router.post("/", authMiddleware, async (req, res) => {
     const userId = req.user.id;
     const preferencesData = req.body;
 
-    console.log(`Saving preferences for user ID: ${userId}`, preferencesData);
+    console.log(`Received preferences save request:`, {
+      userId,
+      preferencesData,
+      headers: req.headers,
+    });
 
     // Validate the userId before proceeding
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      console.error("Invalid user ID:", userId);
       return res.status(400).json({
         message: "Invalid user ID",
         success: false,
@@ -54,6 +59,7 @@ router.post("/", authMiddleware, async (req, res) => {
 
     // Find existing preferences or create new one
     let userPreferences = await UserPreference.findOne({ userId });
+    console.log("Existing preferences:", userPreferences);
 
     if (userPreferences) {
       console.log("Updating existing user preferences");
@@ -80,11 +86,14 @@ router.post("/", authMiddleware, async (req, res) => {
             : userPreferences.isOnboardingComplete,
       };
 
+      console.log("Sanitized data for update:", sanitizedData);
+
       userPreferences = await UserPreference.findOneAndUpdate(
         { userId },
         sanitizedData,
         { new: true }
       );
+      console.log("Updated preferences:", userPreferences);
     } else {
       console.log("Creating new user preferences");
       // Create new preferences
@@ -102,10 +111,11 @@ router.post("/", authMiddleware, async (req, res) => {
         isOnboardingComplete: preferencesData.isOnboardingComplete || false,
       });
       await userPreferences.save();
+      console.log("Created new preferences:", userPreferences);
     }
 
     // Also update the user's preferences field for backward compatibility
-    await User.findByIdAndUpdate(userId, {
+    const updatedUser = await User.findByIdAndUpdate(userId, {
       preferences: {
         travelInterests: preferencesData.travelInterests,
         budgetRange: preferencesData.budgetRange,
@@ -118,10 +128,15 @@ router.post("/", authMiddleware, async (req, res) => {
         isOnboardingComplete: preferencesData.isOnboardingComplete,
       },
     });
+    console.log("Updated user preferences:", updatedUser);
 
     res.json({ success: true, preferences: userPreferences });
   } catch (error) {
-    console.error("Error saving user preferences:", error);
+    console.error("Error saving user preferences:", {
+      error: error.message,
+      stack: error.stack,
+      userId: req.user?.id,
+    });
     res.status(500).json({
       message: "Server error while saving preferences",
       error: error.message,
