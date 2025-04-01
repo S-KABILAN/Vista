@@ -3,120 +3,173 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
+  FlatList,
   TouchableOpacity,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
+import { format } from "date-fns";
 
-const ExpenseList = ({ expenses, onDeleteExpense }) => {
-  const getCategoryIcon = (category) => {
-    const icons = {
-      accommodation: "hotel",
-      transportation: "directions-car",
-      food: "restaurant",
-      activities: "local-activity",
-      shopping: "shopping-bag",
-      emergency: "warning",
-      default: "attach-money",
-    };
-    return icons[category.toLowerCase()] || icons.default;
+const getCategoryIcon = (category) => {
+  switch (category) {
+    case "accommodation":
+      return "hotel";
+    case "transportation":
+      return "directions-car";
+    case "food":
+      return "restaurant";
+    case "activities":
+      return "local-activity";
+    case "shopping":
+      return "shopping-bag";
+    case "entertainment":
+      return "movie";
+    case "health":
+      return "healing";
+    default:
+      return "category";
+  }
+};
+
+const getCategoryColor = (category) => {
+  switch (category) {
+    case "accommodation":
+      return "#FF6B6B";
+    case "transportation":
+      return "#4ECDC4";
+    case "food":
+      return "#45B7D1";
+    case "activities":
+      return "#96CEB4";
+    case "shopping":
+      return "#FFEEAD";
+    case "entertainment":
+      return "#D4A5A5";
+    case "health":
+      return "#9B59B6";
+    default:
+      return "#95A5A6";
+  }
+};
+
+const ExpenseItem = ({ expense, onDelete }) => {
+  const handleDelete = () => {
+    Alert.alert(
+      "Delete Expense",
+      "Are you sure you want to delete this expense?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => onDelete(expense._id || expense.id),
+        },
+      ]
+    );
   };
 
-  const renderExpenseItem = ({ item }) => (
+  return (
     <View style={styles.expenseItem}>
-      <View style={styles.expenseLeft}>
-        <View
-          style={[
-            styles.iconContainer,
-            { backgroundColor: getCategoryColor(item.category) },
-          ]}
-        >
-          <MaterialIcons
-            name={getCategoryIcon(item.category)}
-            size={24}
-            color="white"
-          />
-        </View>
-        <View style={styles.expenseDetails}>
-          <Text style={styles.expenseCategory}>
-            {item.category.charAt(0).toUpperCase() + item.category.slice(1)}
-          </Text>
-          <Text style={styles.expenseDescription}>{item.description}</Text>
-          <Text style={styles.expenseDate}>
-            {new Date(item.timestamp).toLocaleDateString()}
-          </Text>
-        </View>
+      <View style={styles.expenseIconContainer}>
+        <MaterialIcons
+          name={getCategoryIcon(expense.category)}
+          size={24}
+          color={getCategoryColor(expense.category)}
+        />
       </View>
-
-      <View style={styles.expenseRight}>
-        <Text style={styles.expenseAmount}>${item.amount.toFixed(2)}</Text>
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => onDeleteExpense(item.id)}
-        >
-          <MaterialIcons name="delete-outline" size={20} color="#ff3b30" />
+      <View style={styles.expenseDetails}>
+        <Text style={styles.expenseCategory}>
+          {expense.category.charAt(0).toUpperCase() + expense.category.slice(1)}
+        </Text>
+        <Text style={styles.expenseDescription}>{expense.description}</Text>
+        <Text style={styles.expenseDate}>
+          {format(new Date(expense.timestamp), "MMM d, yyyy")}
+        </Text>
+      </View>
+      <View style={styles.expenseAmountContainer}>
+        <Text style={styles.expenseAmount}>${expense.amount.toFixed(2)}</Text>
+        <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
+          <MaterialIcons name="delete-outline" size={20} color="#FF3B30" />
         </TouchableOpacity>
       </View>
     </View>
   );
+};
 
-  const getCategoryColor = (category) => {
-    const colors = {
-      accommodation: "#4A90E2",
-      transportation: "#50E3C2",
-      food: "#F5A623",
-      activities: "#7ED321",
-      shopping: "#BD10E0",
-      emergency: "#FF3B30",
-      default: "#9B9B9B",
-    };
-    return colors[category.toLowerCase()] || colors.default;
-  };
+const ExpenseList = ({ expenses, onDeleteExpense, refreshControl }) => {
+  const sortedExpenses = [...expenses].sort(
+    (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
+  );
+
+  const renderEmptyState = () => (
+    <View style={styles.emptyContainer}>
+      <MaterialIcons name="receipt-long" size={50} color="#ccc" />
+      <Text style={styles.emptyTitle}>No Expenses Yet</Text>
+      <Text style={styles.emptySubtitle}>
+        Start tracking your travel spending by adding your first expense
+      </Text>
+    </View>
+  );
+
+  const renderHeader = () => (
+    <View style={styles.header}>
+      <Text style={styles.headerTitle}>
+        {expenses.length} {expenses.length === 1 ? "Expense" : "Expenses"}
+      </Text>
+    </View>
+  );
 
   return (
-    <ScrollView style={styles.container}>
-      {expenses.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <MaterialIcons name="receipt-long" size={48} color="#ccc" />
-          <Text style={styles.emptyText}>No expenses yet</Text>
-          <Text style={styles.emptySubtext}>Start adding your expenses</Text>
-        </View>
-      ) : (
-        expenses.map((item) => (
-          <View key={item.id}>{renderExpenseItem({ item })}</View>
-        ))
+    <FlatList
+      data={sortedExpenses}
+      renderItem={({ item }) => (
+        <ExpenseItem expense={item} onDelete={onDeleteExpense} />
       )}
-    </ScrollView>
+      keyExtractor={(item) => item._id || item.id}
+      ListEmptyComponent={renderEmptyState}
+      ListHeaderComponent={renderHeader}
+      refreshControl={refreshControl}
+      contentContainerStyle={styles.listContent}
+    />
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  listContent: {
+    flexGrow: 1,
+  },
+  header: {
+    padding: 16,
+    paddingBottom: 8,
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#666",
   },
   expenseItem: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "white",
     padding: 16,
-    borderRadius: 12,
+    backgroundColor: "white",
+    marginHorizontal: 16,
     marginBottom: 8,
+    borderRadius: 12,
+    elevation: 2,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 2,
   },
-  expenseLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  iconContainer: {
+  expenseIconContainer: {
     width: 40,
     height: 40,
     borderRadius: 20,
+    backgroundColor: "#f8f9fa",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
@@ -127,6 +180,7 @@ const styles = StyleSheet.create({
   expenseCategory: {
     fontSize: 16,
     fontWeight: "600",
+    color: "#333",
     marginBottom: 4,
   },
   expenseDescription: {
@@ -138,32 +192,36 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#999",
   },
-  expenseRight: {
+  expenseAmountContainer: {
     alignItems: "flex-end",
   },
   expenseAmount: {
     fontSize: 16,
     fontWeight: "600",
-    marginBottom: 8,
+    color: "#333",
+    marginBottom: 4,
   },
   deleteButton: {
     padding: 4,
   },
   emptyContainer: {
-    alignItems: "center",
+    flex: 1,
     justifyContent: "center",
-    paddingVertical: 40,
+    alignItems: "center",
+    padding: 20,
   },
-  emptyText: {
+  emptyTitle: {
     fontSize: 18,
     fontWeight: "600",
     color: "#666",
-    marginTop: 16,
+    marginTop: 12,
   },
-  emptySubtext: {
+  emptySubtitle: {
     fontSize: 14,
     color: "#999",
+    textAlign: "center",
     marginTop: 8,
+    marginHorizontal: 40,
   },
 });
 

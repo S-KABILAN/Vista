@@ -20,6 +20,16 @@ const jwt = require("jsonwebtoken");
 const Amadeus = require("amadeus");
 const hotelRoutes = require("./routes/hotelRoutes");
 const flightRoutes = require("./routes/flightRoutes");
+const expenseRoutes = require("./routes/expenseRoutes");
+const fs = require("fs");
+const path = require("path");
+const bcrypt = require("bcryptjs");
+const OpenAI = require("openai");
+// Import model schemas from index.js
+const Place = require("./place");
+const UserDetails = require("./userdetails");
+const Notifications = require("./notifications");
+const TravelPlan = require("./models/TravelPlan");
 
 // Define API key for Google AI
 const API_KEY =
@@ -28,6 +38,15 @@ const genAI = new GoogleGenerativeAI(API_KEY);
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const JWT_SECRET = process.env.JWT_SECRET || "vista-travel-secret-key";
+const GOOGLE_PLACES_API_KEY =
+  process.env.GOOGLE_PLACES_API_KEY ||
+  "AIzaSyA0E_xu1VBpJ7gxVvfZ8bMXqmNe3advwes";
+
+// Initialize OpenAI
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || "your-api-key-here",
+});
 
 // Initialize Amadeus API client
 const amadeus = new Amadeus({
@@ -44,6 +63,15 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
+// Add these headers explicitly for better CORS support
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  next();
+});
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -62,15 +90,245 @@ mongoose
   .then(() => console.log("MongoDB connected"))
   .catch((err) => console.error("MongoDB connection error:", err));
 
+// Load destinations data from index.js
+let destinationsData = [];
+try {
+  const destinationsFilePath = path.join(
+    __dirname,
+    "data",
+    "destinations.json"
+  );
+
+  // Check if the file exists
+  if (fs.existsSync(destinationsFilePath)) {
+    const rawData = fs.readFileSync(destinationsFilePath);
+    const data = JSON.parse(rawData);
+    destinationsData = data.destinations || [];
+    console.log(
+      `Loaded ${destinationsData.length} destinations from local database`
+    );
+  } else {
+    console.log("Creating destinations data directory and file");
+    // Ensure the directory exists
+    if (!fs.existsSync(path.join(__dirname, "data"))) {
+      fs.mkdirSync(path.join(__dirname, "data"));
+    }
+
+    // Create a basic file with some popular destinations
+    const basicDestinations = {
+      destinations: [
+        { id: "1", name: "Paris", country: "France" },
+        { id: "2", name: "New York", country: "United States" },
+        { id: "3", name: "Tokyo", country: "Japan" },
+        { id: "4", name: "London", country: "United Kingdom" },
+        { id: "5", name: "Rome", country: "Italy" },
+        { id: "6", name: "Sydney", country: "Australia" },
+        { id: "7", name: "Dubai", country: "United Arab Emirates" },
+        { id: "8", name: "Bangkok", country: "Thailand" },
+        { id: "9", name: "Singapore", country: "Singapore" },
+        { id: "10", name: "Barcelona", country: "Spain" },
+      ],
+    };
+
+    fs.writeFileSync(
+      destinationsFilePath,
+      JSON.stringify(basicDestinations, null, 2)
+    );
+
+    destinationsData = basicDestinations.destinations;
+    console.log(
+      `Created default destinations database with ${destinationsData.length} entries`
+    );
+  }
+} catch (error) {
+  console.error("Error loading destinations data:", error);
+  destinationsData = [];
+}
+
 // Routes
 app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes); // Enable users routes
+app.use("/api/users", userRoutes);
 app.use("/api/travel-plans", travelPlanRoutes);
 app.use("/api/hotels", hotelRoutes);
 app.use("/api/flights", flightRoutes);
-app.use("/api/preferences", userPreferencesRoutes); // Add user preferences routes
+app.use("/api/preferences", userPreferencesRoutes);
+app.use("/api/expenses", expenseRoutes);
 
 // ====== AI FEATURE ROUTES ======
+
+// New AI Budget Manager endpoint
+app.post("/api/budget-suggestion", async (req, res) => {
+  try {
+    const { destination, tripDuration, currentBudget, currentExpenses } =
+      req.body;
+
+    // Calculate total spent
+    const totalSpent = currentExpenses.reduce(
+      (sum, exp) => sum + exp.amount,
+      0
+    );
+
+    // Calculate remaining budget
+    const remainingBudget = currentBudget - totalSpent;
+
+    // Calculate spending ratio
+    const spendingRatio = totalSpent / currentBudget;
+
+    // Category analysis
+    const categoryTotals = currentExpenses.reduce((acc, expense) => {
+      acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
+      return acc;
+    }, {});
+
+    // Sort categories by spending amount
+    const sortedCategories = Object.entries(categoryTotals)
+      .sort((a, b) => b[1] - a[1])
+      .map(([category, amount]) => ({ category, amount }));
+
+    // Generate recommendations using Google AI
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+
+    const prompt = `
+      I'm traveling to ${destination} for ${tripDuration} days with a budget of $${currentBudget}.
+      I've spent $${totalSpent} so far on these categories: ${JSON.stringify(
+      sortedCategories
+    )}.
+      I have $${remainingBudget} left.
+      
+      Please provide:
+      1. A budget status assessment
+      2. Three specific money-saving tips for travelers in ${destination}
+      3. Each tip should be categorized as 'accommodation', 'transportation', 'food', 'activities', or 'other'
+      4. For each tip, include a title, detailed description, and potential impact (savings estimate)
+      
+      Format your response as JSON with this structure:
+      {
+        "budgetStatus": {
+          "status": "warning/good/critical",
+          "message": "Status message"
+        },
+        "recommendations": [
+          {
+            "type": "saving",
+            "title": "Tip title",
+            "description": "Detailed description",
+            "impact": "Estimated savings",
+            "category": "Category name"
+          }
+        ]
+      }
+    `;
+
+    try {
+      const result = await model.generateContent(prompt);
+      const textResult = result.response.text();
+
+      // Extract the JSON from the response
+      const jsonMatch =
+        textResult.match(/```json\n([\s\S]*?)\n```/) ||
+        textResult.match(/{[\s\S]*?}/);
+
+      let parsedAdvice;
+      if (jsonMatch) {
+        const jsonStr = jsonMatch[1] || jsonMatch[0];
+        parsedAdvice = JSON.parse(jsonStr);
+      } else {
+        // Fallback to default advice if AI doesn't return proper JSON
+        parsedAdvice = {
+          budgetStatus: {
+            status:
+              spendingRatio > 0.8
+                ? "warning"
+                : spendingRatio > 0.95
+                ? "critical"
+                : "good",
+            message:
+              spendingRatio > 0.8
+                ? `You've used ${(spendingRatio * 100).toFixed(
+                    1
+                  )}% of your budget. Consider reducing expenses.`
+                : "Your spending is on track with your budget.",
+          },
+          recommendations: [
+            {
+              type: "saving",
+              title: "Local Transportation",
+              description:
+                "Use public transportation instead of taxis or rental cars.",
+              impact: "Save up to 70% on transportation costs",
+              category: "transportation",
+            },
+            {
+              type: "saving",
+              title: "Accommodation Alternatives",
+              description:
+                "Consider hostels, guesthouses, or vacation rentals instead of hotels.",
+              impact: "Save up to 50% on accommodation",
+              category: "accommodation",
+            },
+            {
+              type: "saving",
+              title: "Food Strategy",
+              description:
+                "Shop at local markets and prepare some meals yourself.",
+              impact: "Save up to 40% on food expenses",
+              category: "food",
+            },
+          ],
+        };
+      }
+
+      res.json(parsedAdvice);
+    } catch (aiError) {
+      console.error("AI Error:", aiError);
+      // Fallback to default advice
+      res.json({
+        budgetStatus: {
+          status: spendingRatio > 0.8 ? "warning" : "good",
+          message:
+            spendingRatio > 0.8
+              ? `You've used ${(spendingRatio * 100).toFixed(
+                  1
+                )}% of your budget. Consider reducing expenses.`
+              : "Your spending is on track with your budget.",
+        },
+        recommendations: [
+          {
+            type: "saving",
+            title: "Local Transportation",
+            description:
+              "Use public transportation instead of taxis or rental cars.",
+            impact: "Save up to 70% on transportation costs",
+            category: "transportation",
+          },
+          {
+            type: "saving",
+            title: "Accommodation Alternatives",
+            description:
+              "Consider hostels, guesthouses, or vacation rentals instead of hotels.",
+            impact: "Save up to 50% on accommodation",
+            category: "accommodation",
+          },
+          {
+            type: "saving",
+            title: "Food Strategy",
+            description:
+              "Shop at local markets and prepare some meals yourself.",
+            impact: "Save up to 40% on food expenses",
+            category: "food",
+          },
+        ],
+      });
+    }
+  } catch (error) {
+    console.error("Budget suggestion error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to generate budget suggestions",
+      error: error.message,
+    });
+  }
+});
 
 // Personalized Recommendations Endpoint
 app.get("/api/personalized-recommendations", async (req, res) => {
@@ -346,80 +604,56 @@ const generatePersonalizedDestinations = (userPreferences) => {
   ];
 
   // Filter destinations based on user preferences
-  let recommendedDestinations = [...destinationDatabase];
+  let matchedDestinations = [...destinationDatabase];
 
-  // Filter out already visited destinations
-  if (
-    userPreferences.visitedDestinations &&
-    userPreferences.visitedDestinations.length > 0
-  ) {
-    recommendedDestinations = recommendedDestinations.filter(
-      (destination) =>
-        !userPreferences.visitedDestinations.some(
-          (visited) =>
-            destination.name.toLowerCase().includes(visited.toLowerCase()) ||
-            destination.country.toLowerCase().includes(visited.toLowerCase())
-        )
+  // Filter by budget if specified
+  if (userPreferences.budgetCategory) {
+    matchedDestinations = matchedDestinations.filter(
+      (dest) => dest.budgetCategory === userPreferences.budgetCategory
     );
   }
 
-  // Match based on budget category if specified
-  if (
-    userPreferences.budgetCategory &&
-    userPreferences.budgetCategory !== "flexible"
-  ) {
-    recommendedDestinations = recommendedDestinations.filter(
-      (destination) =>
-        destination.budgetCategory === userPreferences.budgetCategory
-    );
-  }
-
-  // Match based on destination types (city, island, mountain, etc.)
+  // Filter by destination types if specified
   if (
     userPreferences.preferredDestinationTypes &&
     userPreferences.preferredDestinationTypes.length > 0
   ) {
-    // Only filter if we would still have destinations left
-    const typeFiltered = recommendedDestinations.filter((destination) =>
-      userPreferences.preferredDestinationTypes.includes(
-        destination.destinationType
-      )
+    matchedDestinations = matchedDestinations.filter((dest) =>
+      userPreferences.preferredDestinationTypes.includes(dest.destinationType)
     );
-
-    // Only apply this filter if it wouldn't eliminate all options
-    if (typeFiltered.length > 0) {
-      recommendedDestinations = typeFiltered;
-    }
   }
 
-  // Calculate a relevance score for each destination based on interest matching
-  recommendedDestinations = recommendedDestinations.map((destination) => {
-    // Start with a base score
-    let relevanceScore = 0;
+  // Exclude visited destinations if specified
+  if (
+    userPreferences.visitedDestinations &&
+    userPreferences.visitedDestinations.length > 0
+  ) {
+    matchedDestinations = matchedDestinations.filter(
+      (dest) => !userPreferences.visitedDestinations.includes(dest.country)
+    );
+  }
 
-    // Increase score for each matching interest/category
-    userPreferences.travelInterests.forEach((interest) => {
-      if (
-        destination.categories.some((category) =>
-          category.toLowerCase().includes(interest.toLowerCase())
-        )
-      ) {
-        relevanceScore += 2;
-      }
-    });
+  // Score remaining destinations based on interest match
+  matchedDestinations = matchedDestinations.map((dest) => {
+    let score = 0;
 
-    // Include the score in the destination object
-    return {
-      ...destination,
-      relevanceScore,
-    };
+    // Score based on matching interests
+    if (userPreferences.travelInterests && dest.categories) {
+      userPreferences.travelInterests.forEach((interest) => {
+        if (dest.categories.includes(interest)) {
+          score += 2;
+        }
+      });
+    }
+
+    return { ...dest, matchScore: score };
   });
 
-  // Sort by relevance score (highest first)
-  recommendedDestinations.sort((a, b) => b.relevanceScore - a.relevanceScore);
+  // Sort by match score (descending)
+  matchedDestinations.sort((a, b) => b.matchScore - a.matchScore);
 
-  // Return top recommendations
-  return recommendedDestinations.slice(0, 6);
+  // Return top matches (limit to 5)
+  return matchedDestinations.slice(0, 5);
 };
 
 // Itinerary Optimization Endpoint

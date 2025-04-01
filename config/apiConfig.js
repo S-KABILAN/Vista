@@ -1,5 +1,5 @@
 // API configuration
-export const API_BASE_URL = "http://192.168.167.149:5000";
+export const API_BASE_URL = "http://192.168.15.149:5000";
 
 // Alternative URLs for different environments
 // export const API_BASE_URL = "http://localhost:3001"; // Use for local backend when on iOS simulator

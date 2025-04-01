@@ -6,139 +6,207 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Animated,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import axios from "axios";
-import { BACKEND_URL } from "../config";
+import { BACKEND_URL_ACTUAL as BACKEND_URL } from "../config";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const AIAdvice = ({ expenses, location, budget }) => {
-  const [loading, setLoading] = useState(false);
+const AIAdvice = ({ expenses, budget, travelPlanId, refreshControl }) => {
   const [advice, setAdvice] = useState(null);
-  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [fadeAnim] = useState(new Animated.Value(0));
 
-  const generateAdvice = async () => {
-    setLoading(true);
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  useEffect(() => {
+    if (expenses.length > 0 && budget > 0) {
+      fetchAdvice();
+    } else {
+      setAdvice(null);
+      setLoading(false);
+    }
+  }, [expenses, budget, travelPlanId]);
+
+  const fetchAdvice = async () => {
     try {
-      // For development/testing, use mock data
-      const mockAdvice = {
-        budgetStatus: {
-          status:
-            expenses.reduce((sum, exp) => sum + exp.amount, 0) > budget * 0.8
-              ? "warning"
-              : "good",
-          message:
-            expenses.reduce((sum, exp) => sum + exp.amount, 0) > budget * 0.8
-              ? `You've used ${(
-                  (expenses.reduce((sum, exp) => sum + exp.amount, 0) /
-                    budget) *
-                  100
-                ).toFixed(1)}% of your budget. Consider reducing expenses.`
-              : "Your spending is on track with your budget.",
+      setLoading(true);
+      setError(null);
+
+      const token = await AsyncStorage.getItem("userToken");
+      if (!token) {
+        throw new Error("Authentication required");
+      }
+
+      // Calculate category-wise totals
+      const categorySummary = expenses.reduce((acc, expense) => {
+        acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
+        return acc;
+      }, {});
+
+      // Calculate total spent
+      const totalSpent = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+
+      // Calculate days remaining (assuming 30 days for now)
+      const daysRemaining = 30;
+
+      const response = await axios.post(
+        `${BACKEND_URL}/api/budget/advice`,
+        {
+          totalSpent,
+          categorySummary,
+          daysRemaining,
+          totalBudget: budget,
         },
-        recommendations: [
-          {
-            type: "saving",
-            title: "Accommodation Tips",
-            description:
-              "Consider booking hostels or using home-sharing services.",
-            impact: "Save up to 30% on accommodation",
-            category: "accommodation",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
           },
-          {
-            type: "price",
-            title: "Local Transportation",
-            description: "Use public transport passes instead of taxis.",
-            impact: "Reduce transport costs by 50%",
-            category: "transportation",
-          },
-          {
-            type: "budget",
-            title: "Food & Dining",
-            description:
-              "Try local markets and street food for authentic experiences.",
-            impact: "Save 25% on food expenses",
-            category: "food",
-          },
-        ],
-      };
+        }
+      );
 
-      // Uncomment below for actual API integration
-      /*
-      const response = await axios.post(`${BACKEND_URL}/api/budget-suggestion`, {
-        destination: location,
-        tripDuration: 7, // You might want to pass this as a prop
-        currentBudget: budget,
-        currentExpenses: expenses,
-      });
       setAdvice(response.data);
-      */
-
-      setAdvice(mockAdvice);
     } catch (error) {
-      console.error("Error generating advice:", error);
-      // Show a user-friendly error message or fallback content
+      console.error("Error fetching advice:", error);
+      let errorMessage = "Could not load AI advice. Please try again.";
+
+      if (error.response) {
+        if (error.response.status === 401) {
+          errorMessage = "Your session has expired. Please log in again.";
+        } else {
+          errorMessage =
+            error.response.data?.message || "Server error occurred";
+        }
+      } else if (error.request) {
+        errorMessage = "Network error. Please check your connection.";
+      }
+
+      setError(errorMessage);
+      setAdvice(null);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    generateAdvice();
-  }, [expenses, location, budget]);
+  const renderAdviceSection = (title, content, icon) => (
+    <View style={styles.adviceSection}>
+      <View style={styles.adviceHeader}>
+        <MaterialIcons name={icon} size={24} color="#007AFF" />
+        <Text style={styles.adviceTitle}>{title}</Text>
+      </View>
+      <Text style={styles.adviceContent}>{content}</Text>
+    </View>
+  );
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Analyzing your expenses...</Text>
+        <Text style={styles.loadingText}>Analyzing your spending...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <MaterialIcons name="error-outline" size={50} color="#FF3B30" />
+        <Text style={styles.errorTitle}>Oops!</Text>
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={fetchAdvice}>
+          <Text style={styles.retryButtonText}>Try Again</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (!advice) {
+    return (
+      <View style={styles.emptyContainer}>
+        <MaterialIcons name="psychology" size={50} color="#ccc" />
+        <Text style={styles.emptyTitle}>No Advice Available</Text>
+        <Text style={styles.emptySubtitle}>
+          Add some expenses to get personalized budget advice
+        </Text>
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <LinearGradient colors={["#2ecc71", "#27ae60"]} style={styles.statusCard}>
-        <MaterialIcons
-          name={
-            advice?.budgetStatus?.status === "warning"
-              ? "warning"
-              : "check-circle"
-          }
-          size={40}
-          color="white"
-        />
-        <Text style={styles.statusMessage}>
-          {advice?.budgetStatus?.message}
-        </Text>
-      </LinearGradient>
+    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+      <ScrollView
+        style={styles.scrollView}
+        refreshControl={refreshControl}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>AI Budget Insights</Text>
+          <Text style={styles.headerSubtitle}>
+            Personalized advice based on your spending patterns
+          </Text>
+        </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Smart Recommendations</Text>
-        {advice?.recommendations.map((rec, index) => (
-          <View key={index} style={styles.recommendationCard}>
-            <View style={styles.recommendationHeader}>
-              <MaterialIcons name="lightbulb" size={24} color="#007AFF" />
-              <Text style={styles.recommendationTitle}>{rec.title}</Text>
-            </View>
-            <Text style={styles.recommendationDescription}>
-              {rec.description}
-            </Text>
-            <View style={styles.impactContainer}>
-              <MaterialIcons name="trending-up" size={20} color="#4CAF50" />
-              <Text style={styles.impactText}>{rec.impact}</Text>
-            </View>
-          </View>
-        ))}
-      </View>
-    </ScrollView>
+        {renderAdviceSection("Overall Summary", advice.summary, "assessment")}
+
+        {renderAdviceSection(
+          "Recommendations",
+          advice.recommendations,
+          "lightbulb"
+        )}
+
+        {renderAdviceSection(
+          "Potential Savings",
+          advice.potentialSavings,
+          "savings"
+        )}
+
+        {renderAdviceSection(
+          "Category Insights",
+          advice.categoryInsights,
+          "category"
+        )}
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            Advice is based on your current spending patterns and budget
+          </Text>
+        </View>
+      </ScrollView>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
+    backgroundColor: "#f8f9fa",
+  },
+  scrollView: {
+    flex: 1,
+  },
+  header: {
+    padding: 20,
+    backgroundColor: "white",
+    borderBottomWidth: 1,
+    borderBottomColor: "#ebebeb",
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 8,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: "#666",
   },
   loadingContainer: {
     flex: 1,
@@ -151,63 +219,91 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#666",
   },
-  statusCard: {
-    padding: 20,
-    borderRadius: 12,
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
-    marginBottom: 20,
+    padding: 20,
   },
-  statusMessage: {
-    color: "white",
-    fontSize: 16,
-    textAlign: "center",
-    marginTop: 12,
-  },
-  section: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
+  errorTitle: {
+    fontSize: 20,
     fontWeight: "bold",
-    marginBottom: 12,
+    marginTop: 16,
+    color: "#333",
   },
-  recommendationCard: {
+  errorText: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    marginTop: 8,
+    marginHorizontal: 40,
+  },
+  retryButton: {
+    marginTop: 20,
+    backgroundColor: "#007AFF",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: "white",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginTop: 16,
+    color: "#333",
+  },
+  emptySubtitle: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    marginTop: 8,
+    marginHorizontal: 40,
+  },
+  adviceSection: {
     backgroundColor: "white",
+    margin: 16,
     padding: 16,
     borderRadius: 12,
-    marginBottom: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
-  recommendationHeader: {
+  adviceHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
-  },
-  recommendationTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginLeft: 8,
-  },
-  recommendationDescription: {
-    fontSize: 14,
-    color: "#666",
     marginBottom: 12,
   },
-  impactContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f5f5f5",
-    padding: 8,
-    borderRadius: 8,
-  },
-  impactText: {
+  adviceTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
     marginLeft: 8,
-    color: "#4CAF50",
-    fontWeight: "500",
+  },
+  adviceContent: {
+    fontSize: 16,
+    color: "#666",
+    lineHeight: 24,
+  },
+  footer: {
+    padding: 16,
+    alignItems: "center",
+  },
+  footerText: {
+    fontSize: 14,
+    color: "#999",
+    textAlign: "center",
   },
 });
 
