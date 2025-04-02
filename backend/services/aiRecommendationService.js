@@ -649,63 +649,185 @@ async function getNearbyPointsOfInterest(location, placeDetails) {
 
 // Function to generate mock destination data
 function generateMockDestinationData(destination) {
+  // Generate a larger set of mock attractions (10 items)
+  const mockAttractions = [
+    {
+      name: `${destination} City Center`,
+      rating: 4.5,
+      types: ["point_of_interest"],
+      address: `City Center, ${destination}`,
+    },
+    {
+      name: `${destination} Historical Museum`,
+      rating: 4.3,
+      types: ["museum"],
+      address: `Museum Avenue, ${destination}`,
+    },
+    {
+      name: `${destination} Natural Park`,
+      rating: 4.7,
+      types: ["park"],
+      address: `Park Street, ${destination}`,
+    },
+    {
+      name: `${destination} Art Gallery`,
+      rating: 4.2,
+      types: ["art_gallery"],
+      address: `Gallery Road, ${destination}`,
+    },
+    {
+      name: `${destination} Cultural Center`,
+      rating: 4.4,
+      types: ["point_of_interest"],
+      address: `Culture Street, ${destination}`,
+    },
+    {
+      name: `${destination} Botanical Garden`,
+      rating: 4.6,
+      types: ["park"],
+      address: `Garden Avenue, ${destination}`,
+    },
+    {
+      name: `${destination} Zoo`,
+      rating: 4.1,
+      types: ["zoo"],
+      address: `Animal Road, ${destination}`,
+    },
+    {
+      name: `${destination} Concert Hall`,
+      rating: 4.8,
+      types: ["point_of_interest"],
+      address: `Music Street, ${destination}`,
+    },
+    {
+      name: `${destination} Historic Castle`,
+      rating: 4.9,
+      types: ["point_of_interest"],
+      address: `Castle Hill, ${destination}`,
+    },
+    {
+      name: `${destination} Science Museum`,
+      rating: 4.0,
+      types: ["museum"],
+      address: `Science Boulevard, ${destination}`,
+    },
+  ];
+
+  // Generate a larger set of mock restaurants (8 items)
+  const mockRestaurants = [
+    {
+      name: `${destination} Local Restaurant`,
+      rating: 4.5,
+      price_level: 2,
+      types: ["restaurant"],
+      address: `Restaurant Row, ${destination}`,
+    },
+    {
+      name: `${destination} Fine Dining`,
+      rating: 4.7,
+      price_level: 3,
+      types: ["restaurant"],
+      address: `Gourmet Street, ${destination}`,
+    },
+    {
+      name: `${destination} Café`,
+      rating: 4.3,
+      price_level: 1,
+      types: ["cafe"],
+      address: `Café Lane, ${destination}`,
+    },
+    {
+      name: `${destination} Street Food Market`,
+      rating: 4.4,
+      price_level: 1,
+      types: ["restaurant"],
+      address: `Market Square, ${destination}`,
+    },
+    {
+      name: `${destination} Seafood Restaurant`,
+      rating: 4.6,
+      price_level: 3,
+      types: ["restaurant"],
+      address: `Harbor Drive, ${destination}`,
+    },
+    {
+      name: `${destination} Pizza Place`,
+      rating: 4.2,
+      price_level: 2,
+      types: ["restaurant"],
+      address: `Main Street, ${destination}`,
+    },
+    {
+      name: `${destination} Asian Fusion`,
+      rating: 4.5,
+      price_level: 2,
+      types: ["restaurant"],
+      address: `Fusion Avenue, ${destination}`,
+    },
+    {
+      name: `${destination} Steakhouse`,
+      rating: 4.8,
+      price_level: 4,
+      types: ["restaurant"],
+      address: `Meat Street, ${destination}`,
+    },
+  ];
+
+  // Generate a larger set of mock hotels (6 items)
+  const mockHotels = [
+    {
+      name: `${destination} Standard Hotel`,
+      rating: 4.1,
+      types: ["lodging"],
+      address: `Downtown, ${destination}`,
+      price_level: 2,
+    },
+    {
+      name: `${destination} Boutique Hotel`,
+      rating: 4.6,
+      types: ["lodging"],
+      address: `Fashion District, ${destination}`,
+      price_level: 3,
+    },
+    {
+      name: `${destination} Grand Resort`,
+      rating: 4.9,
+      types: ["lodging"],
+      address: `Resort Row, ${destination}`,
+      price_level: 4,
+    },
+    {
+      name: `${destination} Budget Inn`,
+      rating: 3.8,
+      types: ["lodging"],
+      address: `Value Street, ${destination}`,
+      price_level: 1,
+    },
+    {
+      name: `${destination} Luxury Suites`,
+      rating: 4.8,
+      types: ["lodging"],
+      address: `Luxury Lane, ${destination}`,
+      price_level: 4,
+    },
+    {
+      name: `${destination} Family Hotel`,
+      rating: 4.3,
+      types: ["lodging"],
+      address: `Family Avenue, ${destination}`,
+      price_level: 2,
+    },
+  ];
+
   return {
     destinationDetails: {
       name: destination,
       formatted_address: `${destination}`,
       rating: 4.5,
     },
-    attractions: [
-      {
-        name: `${destination} City Center`,
-        rating: 4.5,
-        types: ["point_of_interest"],
-      },
-      {
-        name: `${destination} Historical Museum`,
-        rating: 4.3,
-        types: ["museum"],
-      },
-      { name: `${destination} Natural Park`, rating: 4.7, types: ["park"] },
-      {
-        name: `${destination} Art Gallery`,
-        rating: 4.2,
-        types: ["art_gallery"],
-      },
-      {
-        name: `${destination} Cultural Center`,
-        rating: 4.4,
-        types: ["point_of_interest"],
-      },
-    ],
-    restaurants: [
-      {
-        name: `${destination} Local Restaurant`,
-        rating: 4.5,
-        price_level: 2,
-        types: ["restaurant"],
-      },
-      {
-        name: `${destination} Fine Dining`,
-        rating: 4.7,
-        price_level: 3,
-        types: ["restaurant"],
-      },
-      {
-        name: `${destination} Café`,
-        rating: 4.3,
-        price_level: 1,
-        types: ["cafe"],
-      },
-    ],
-    hotels: [
-      { name: `${destination} Hotel`, rating: 4.4, types: ["lodging"] },
-      {
-        name: `${destination} Boutique Hotel`,
-        rating: 4.6,
-        types: ["lodging"],
-      },
-    ],
+    attractions: mockAttractions,
+    restaurants: mockRestaurants,
+    hotels: mockHotels,
   };
 }
 
@@ -929,6 +1051,9 @@ Also include:
               topRestaurants: destinationData.restaurants.slice(0, 5),
               recommendedHotels: destinationData.hotels.slice(0, 3),
               amadeusHotels: amadeusHotels,
+              attractions: destinationData.attractions,
+              restaurants: destinationData.restaurants,
+              hotels: destinationData.hotels,
             },
           });
 
@@ -951,6 +1076,9 @@ Also include:
           topRestaurants: destinationData.restaurants.slice(0, 5),
           recommendedHotels: destinationData.hotels.slice(0, 3),
           amadeusHotels: amadeusHotels,
+          attractions: destinationData.attractions,
+          restaurants: destinationData.restaurants,
+          hotels: destinationData.hotels,
         },
         ...enhancedPlan,
       };
@@ -988,6 +1116,9 @@ Also include:
             topRestaurants: destinationData.restaurants.slice(0, 5),
             recommendedHotels: destinationData.hotels.slice(0, 3),
             amadeusHotels: amadeusHotels,
+            attractions: destinationData.attractions,
+            restaurants: destinationData.restaurants,
+            hotels: destinationData.hotels,
           },
         });
 
@@ -1013,6 +1144,9 @@ Also include:
         topRestaurants: destinationData.restaurants.slice(0, 5),
         recommendedHotels: destinationData.hotels.slice(0, 3),
         amadeusHotels: amadeusHotels,
+        attractions: destinationData.attractions,
+        restaurants: destinationData.restaurants,
+        hotels: destinationData.hotels,
       },
       ...enhancedPlan,
     };
@@ -1021,13 +1155,29 @@ Also include:
 
 // Function to get emergency fallback plan
 async function getEmergencyFallbackPlan(destination, budget, tripDuration) {
+  console.log("Generating emergency fallback plan for:", destination);
+
+  // Generate basic plan data
   const planData = await generateTravelPlan(destination, budget, tripDuration);
+
+  // Create mock destination data with more detailed arrays
+  const mockDestinationData = generateMockDestinationData(destination);
 
   return {
     destination,
     budget: parseInt(budget) || 1000,
     source: "emergency_fallback",
     error: "Could not fetch real destination data",
+    destinationData: {
+      details: mockDestinationData.destinationDetails,
+      topAttractions: mockDestinationData.attractions.slice(0, 5),
+      topRestaurants: mockDestinationData.restaurants.slice(0, 5),
+      recommendedHotels: mockDestinationData.hotels.slice(0, 3),
+      // Include full arrays as well
+      attractions: mockDestinationData.attractions,
+      restaurants: mockDestinationData.restaurants,
+      hotels: mockDestinationData.hotels,
+    },
     ...planData,
   };
 }

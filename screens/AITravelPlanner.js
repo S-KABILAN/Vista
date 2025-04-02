@@ -914,7 +914,38 @@ const AITravelPlanner = ({ navigation, route }) => {
 
   // Render plan results
   const renderPlanResults = () => {
-    if (!plan) return null;
+    if (!plan) return <ActivityIndicator size="large" color="#0000ff" />;
+
+    // Debug information about available data
+    console.log(`Plan data available: ${plan.destination}`);
+    console.log(
+      `Destination Data: ${JSON.stringify(
+        plan.destinationData?.details?.name || "No details"
+      )}`
+    );
+
+    // Check and log attractions data
+    if (plan.destinationData) {
+      console.log(`Available attractions data:`);
+      console.log(
+        `- topAttractions: ${
+          plan.destinationData.topAttractions?.length || 0
+        } items`
+      );
+      console.log(
+        `- full attractions: ${
+          plan.destinationData.attractions?.length || 0
+        } items`
+      );
+      console.log(
+        `- recommendedHotels: ${
+          plan.destinationData.recommendedHotels?.length || 0
+        } items`
+      );
+      console.log(
+        `- full hotels: ${plan.destinationData.hotels?.length || 0} items`
+      );
+    }
 
     return (
       <ScrollView
@@ -1088,16 +1119,20 @@ const AITravelPlanner = ({ navigation, route }) => {
                     };
                   }
 
+                  // Get the full attractions array if available
+                  const attractions =
+                    plan.destinationData.attractions ||
+                    plan.destinationData.topAttractions ||
+                    [];
+
                   console.log(
-                    "Navigating to AllAttractions with coordinates:",
+                    `Navigating to AllAttractions with ${attractions.length} attractions and coordinates:`,
                     coords
                   );
 
-                  // Limit to 3 attractions in preview
-                  const previewCount = 3;
                   navigation.navigate("AllAttractions", {
                     destination: plan.destination || "Unknown destination",
-                    attractions: plan.destinationData.topAttractions || [],
+                    attractions: attractions,
                     coordinates: coords,
                   });
                 }}
@@ -1492,13 +1527,22 @@ const AITravelPlanner = ({ navigation, route }) => {
                 };
               }
 
-              console.log("Navigating to AllHotels with coordinates:", coords);
+              // Get the full arrays of hotels
+              const amadeusHotels = plan.destinationData?.amadeusHotels || [];
+              const googleHotels =
+                plan.destinationData?.hotels ||
+                plan.destinationData?.recommendedHotels ||
+                [];
+
+              console.log(
+                `Navigating to AllHotels with ${amadeusHotels.length} Amadeus hotels, ${googleHotels.length} Google hotels and coordinates:`,
+                coords
+              );
 
               navigation.navigate("AllHotels", {
                 destination: plan.destination || "Unknown destination",
-                amadeusHotels: plan.destinationData?.amadeusHotels || [],
-                recommendedHotels:
-                  plan.destinationData?.recommendedHotels || [],
+                amadeusHotels: amadeusHotels,
+                recommendedHotels: googleHotels,
                 coordinates: coords,
                 checkInDate,
                 checkOutDate,

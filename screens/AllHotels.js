@@ -40,6 +40,11 @@ const AllHotels = ({ route, navigation }) => {
 
   // Fetch more hotels if we have coordinates
   useEffect(() => {
+    // Log initial hotel counts
+    console.log(
+      `Initial hotels received: ${amadeusHotels.length} Amadeus hotels, ${recommendedHotels.length} Google hotels`
+    );
+
     const fetchMoreHotels = async () => {
       if (!coordinates) {
         console.log("No coordinates available, skipping hotel fetch");

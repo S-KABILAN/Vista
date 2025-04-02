@@ -31,6 +31,11 @@ const AllAttractions = ({ route, navigation }) => {
 
   // Fetch more attractions if we have coordinates
   useEffect(() => {
+    // Log initial attraction count
+    console.log(
+      `Initial attractions received: ${attractions.length} attractions`
+    );
+
     const fetchMoreAttractions = async () => {
       if (!coordinates) {
         console.log("No coordinates available, skipping attractions fetch");
