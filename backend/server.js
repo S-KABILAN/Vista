@@ -29,8 +29,8 @@ const OpenAI = require("openai");
 // Import model schemas from index.js
 const Place = require("./place");
 const UserDetails = require("./userdetails");
-const Notifications = require("./notifications");
 const TravelPlan = require("./models/TravelPlan");
+const aiRecommendationsRoutes = require("./routes/aiRecommendations");
 
 // Log environment variables for debugging (without exposing secrets)
 console.log("Environment variables loaded:");
@@ -39,16 +39,21 @@ console.log("- JWT_SECRET:", process.env.JWT_SECRET ? "Set" : "Not set");
 console.log("- PORT:", process.env.PORT || "3001");
 
 // Define API key for Google AI
-const API_KEY =
-  process.env.GOOGLE_API_KEY || "AIzaSyBnDKVfSfmY4HwxmC_VULTfH4UwyDfKF_g";
+const API_KEY = process.env.GOOGLE_PLACES_API_KEY;
 const genAI = new GoogleGenerativeAI(API_KEY);
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || "vista-travel-secret-key";
-const GOOGLE_PLACES_API_KEY =
-  process.env.GOOGLE_PLACES_API_KEY ||
-  "AIzaSyA0E_xu1VBpJ7gxVvfZ8bMXqmNe3advwes";
+const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
+
+// Verify if API key is set
+if (!GOOGLE_PLACES_API_KEY) {
+  console.error("GOOGLE_PLACES_API_KEY is not set in environment variables");
+  console.error(
+    "AI recommendations and place search features will not work correctly"
+  );
+}
 
 // Initialize OpenAI
 const openai = new OpenAI({
@@ -168,6 +173,8 @@ app.use("/api/flights", flightRoutes);
 app.use("/api/preferences", userPreferencesRoutes);
 app.use("/api/expenses", expenseRoutes);
 app.use("/api/admin", adminRoutes);
+// app.use("/api/notifications", notificationRoutes);
+app.use("/api/ai-recommendations", aiRecommendationsRoutes);
 
 // ====== AI FEATURE ROUTES ======
 

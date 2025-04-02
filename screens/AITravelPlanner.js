@@ -1348,6 +1348,7 @@ const AITravelPlanner = ({ navigation, route }) => {
     }
 
     setLoading(true);
+    setError(null);
     try {
       // Calculate default dates if not set
       const today = new Date();
@@ -1359,18 +1360,65 @@ const AITravelPlanner = ({ navigation, route }) => {
       );
       const defaultCheckOutStr = defaultCheckOut.toISOString().split("T")[0];
 
+      console.log("Preparing travel plan request with parameters:", {
+        destination,
+        placeId: selectedDestination?.place_id || selectedDestination?.id,
+        coordinates: selectedDestination?.coordinates
+          ? `${
+              selectedDestination.coordinates.latitude ||
+              selectedDestination.coordinates.lat
+            },${
+              selectedDestination.coordinates.longitude ||
+              selectedDestination.coordinates.lng
+            }`
+          : null,
+        budget,
+        tripDuration,
+      });
+
+      // Format coordinates correctly as a string
+      let coordsString = null;
+      if (selectedDestination?.coordinates) {
+        const lat =
+          selectedDestination.coordinates.latitude ||
+          selectedDestination.coordinates.lat;
+        const lng =
+          selectedDestination.coordinates.longitude ||
+          selectedDestination.coordinates.lng;
+        if (lat && lng) {
+          coordsString = `${lat},${lng}`;
+        }
+      }
+
+      // Format starting location coordinates correctly as a string
+      let startingLocationCoordsString = null;
+      if (startingLocationCoords) {
+        startingLocationCoordsString = `${startingLocationCoords.latitude},${startingLocationCoords.longitude}`;
+      } else if (userLocation) {
+        startingLocationCoordsString = `${userLocation.latitude},${userLocation.longitude}`;
+      }
+
       const result = await TravelPlanService.getAIRecommendations({
         destination,
         placeId: selectedDestination?.place_id || selectedDestination?.id,
-        coordinates: selectedDestination?.coordinates,
+        coordinates: coordsString,
         startingLocation: startingLocation || "Current Location",
-        startingLocationCoords: startingLocationCoords || userLocation,
+        startingLocationCoords: startingLocationCoordsString,
         budget,
         preferences: preferences.split(",").filter(Boolean).join(","),
         tripDuration,
         checkInDate: checkInDate || defaultCheckIn,
         checkOutDate: checkOutDate || defaultCheckOutStr,
       });
+
+      if (!result) {
+        throw new Error("No response received from server");
+      }
+
+      console.log(
+        "Received AI recommendation response with source:",
+        result.source || "AI"
+      );
 
       setPlan(result);
       setSavedPlanId(result.savedPlanId);
@@ -1386,17 +1434,16 @@ const AITravelPlanner = ({ navigation, route }) => {
       console.error("Error generating travel plan:", error);
       setError(
         error.response?.data?.error ||
+          error.response?.data?.message ||
           error.message ||
-          "Failed to generate travel plan"
+          "Failed to generate travel plan. Please try again later."
       );
 
-      // Try to use mock plan as fallback
-      if (!plan) {
-        console.log("Using mock plan as fallback");
-        const mockPlan = generateMockPlan();
-        setPlan(mockPlan);
-        setFormStep(4);
-      }
+      Alert.alert(
+        "Error Generating Travel Plan",
+        "We couldn't create your travel plan at this time. Please check your internet connection and try again.",
+        [{ text: "OK" }]
+      );
     } finally {
       setLoading(false);
     }

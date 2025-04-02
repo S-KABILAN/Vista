@@ -2,7 +2,7 @@ import { Platform } from "react-native";
 
 // Get current device/emulator IP address
 // For development - this should be the same IP where your backend server is running
-const DEV_IP = "192.168.15.149"; // CHANGE THIS to your actual IP address
+const DEV_IP = "192.168.15.149"; // Default Android emulator IP to access host machine
 
 // Determine the appropriate backend URL based on platform and environment
 const getBackendUrl = () => {
