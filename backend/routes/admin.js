@@ -321,11 +321,25 @@ router.get("/travel-plans", authenticateAdmin, isAdmin, async (req, res) => {
       .limit(limit)
       .populate("userId", "fullName email");
 
+    // Ensure all required fields are present
+    const formattedTravelPlans = travelPlans.map((plan) => ({
+      ...plan.toObject(),
+      destination: plan.destination || "Unknown Destination",
+      budget: plan.budget || 0,
+      tripDuration: plan.tripDuration || 0,
+      createdAt: plan.createdAt || new Date(),
+      isBookmarked: plan.isBookmarked || false,
+      userId: plan.userId || {
+        fullName: "Unknown User",
+        email: "unknown@example.com",
+      },
+    }));
+
     const total = await TravelPlan.countDocuments();
 
     res.json({
       success: true,
-      travelPlans,
+      travelPlans: formattedTravelPlans,
       pagination: {
         total,
         page,

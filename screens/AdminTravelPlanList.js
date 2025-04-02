@@ -221,7 +221,9 @@ const AdminTravelPlanList = ({ navigation }) => {
       <View style={styles.planHeader}>
         <View style={styles.destinationContainer}>
           <FontAwesome5 name="map-marker-alt" size={16} color="#3498db" />
-          <Text style={styles.destination}>{item.destination}</Text>
+          <Text style={styles.destination}>
+            {item.destination || "Unknown Destination"}
+          </Text>
         </View>
         {item.isBookmarked && (
           <View style={styles.featuredBadge}>
@@ -234,12 +236,16 @@ const AdminTravelPlanList = ({ navigation }) => {
         <View style={styles.detailRow}>
           <View style={styles.detailItem}>
             <Ionicons name="person-outline" size={16} color="#666" />
-            <Text style={styles.detailText}>{item.userId.fullName}</Text>
+            <Text style={styles.detailText}>
+              {item.userId?.fullName || "Unknown User"}
+            </Text>
           </View>
           <View style={styles.detailItem}>
             <MaterialIcons name="date-range" size={16} color="#666" />
             <Text style={styles.detailText}>
-              {new Date(item.createdAt).toLocaleDateString()}
+              {item.createdAt
+                ? new Date(item.createdAt).toLocaleDateString()
+                : "No date"}
             </Text>
           </View>
         </View>
@@ -247,11 +253,13 @@ const AdminTravelPlanList = ({ navigation }) => {
         <View style={styles.detailRow}>
           <View style={styles.detailItem}>
             <MaterialIcons name="attach-money" size={16} color="#666" />
-            <Text style={styles.detailText}>${item.budget}</Text>
+            <Text style={styles.detailText}>${item.budget || "0"}</Text>
           </View>
           <View style={styles.detailItem}>
             <Ionicons name="time-outline" size={16} color="#666" />
-            <Text style={styles.detailText}>{item.tripDuration} days</Text>
+            <Text style={styles.detailText}>
+              {item.tripDuration || "0"} days
+            </Text>
           </View>
         </View>
       </View>
