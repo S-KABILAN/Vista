@@ -1,6 +1,9 @@
 // REMOVE THIS LINE FOR NOW - we'll add it back after fixing dependencies
 // import "react-native-gesture-handler";
 
+// Import global axios configuration
+import "./config/axios-config";
+
 import React, { useState } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -14,6 +17,8 @@ import {
   UserPreferencesProvider,
   useUserPreferences,
 } from "./context/UserPreferencesContext";
+// Admin Context Provider
+import { AdminProvider, useAdmin } from "./context/AdminContext";
 
 // Screens
 import Login from "./screens/Login";
@@ -36,6 +41,10 @@ import AIBudgetManager from "./screens/AIBudgetManager";
 import AllHotels from "./screens/AllHotels";
 // User Preferences Onboarding
 import UserPreferencesOnboarding from "./screens/UserPreferencesOnboarding";
+
+// Admin Screens
+import AdminLogin from "./screens/AdminLogin";
+import AdminNavigation from "./navigation/AdminNavigation";
 
 // Import navigation
 import AppNavigation from "./navigation/AppNavigation";
@@ -93,6 +102,29 @@ class ErrorBoundary extends React.Component {
   }
 }
 
+// Check for admin login
+const AdminCheckWrapper = () => {
+  const { isAuthenticated: isAdminAuthenticated, loading: adminLoading } =
+    useAdmin();
+
+  if (adminLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#3498db" />
+        <Text style={{ marginTop: 10 }}>Loading admin...</Text>
+      </View>
+    );
+  }
+
+  // If admin is authenticated, show admin navigation
+  if (isAdminAuthenticated) {
+    return <AdminNavigation />;
+  }
+
+  // Otherwise, proceed with regular user login flow
+  return <MainApp />;
+};
+
 // Main app component with conditional navigation
 const MainApp = () => {
   const { user, loading } = useAuth();
@@ -103,7 +135,7 @@ const MainApp = () => {
     prefsExists: !!preferences,
     isOnboardingComplete: preferences?.isOnboardingComplete,
     authLoading: loading,
-    prefsLoading: preferencesLoading
+    prefsLoading: preferencesLoading,
   });
 
   // Show loading state
@@ -124,7 +156,9 @@ const MainApp = () => {
   if (user) {
     // IMPORTANT: Check explicitly for isOnboardingComplete === true
     if (!preferences || preferences.isOnboardingComplete !== true) {
-      console.log("User logged in but onboarding not complete, showing onboarding");
+      console.log(
+        "User logged in but onboarding not complete, showing onboarding"
+      );
       return (
         <NavigationContainer>
           <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -166,6 +200,7 @@ const MainApp = () => {
             <Stack.Screen name="Register" component={Register} />
             <Stack.Screen name="NamePage" component={NamePage} />
             <Stack.Screen name="Forgot" component={Forgot} />
+            <Stack.Screen name="AdminLogin" component={AdminLogin} />
             <Stack.Screen
               name="AllHotels"
               component={AllHotels}
@@ -182,11 +217,13 @@ const MainApp = () => {
 export default function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <UserPreferencesProvider>
-          <MainApp />
-        </UserPreferencesProvider>
-      </AuthProvider>
+      <AdminProvider>
+        <AuthProvider>
+          <UserPreferencesProvider>
+            <AdminCheckWrapper />
+          </UserPreferencesProvider>
+        </AuthProvider>
+      </AdminProvider>
     </ErrorBoundary>
   );
 }

@@ -1,4 +1,4 @@
-// Load environment variables
+// Load environment variables from .env file
 require("dotenv").config();
 
 const express = require("express");
@@ -13,6 +13,7 @@ const authRoutes = require("./routes/auth");
 const userRoutes = require("./routes/users");
 const travelPlanRoutes = require("./routes/travelPlans");
 const userPreferencesRoutes = require("./routes/userPreferences");
+const adminRoutes = require("./routes/admin");
 const { configurePassport } = require("./config/passport");
 const JwtStrategy = require("passport-jwt").Strategy;
 const ExtractJwt = require("passport-jwt").ExtractJwt;
@@ -30,6 +31,12 @@ const Place = require("./place");
 const UserDetails = require("./userdetails");
 const Notifications = require("./notifications");
 const TravelPlan = require("./models/TravelPlan");
+
+// Log environment variables for debugging (without exposing secrets)
+console.log("Environment variables loaded:");
+console.log("- NODE_ENV:", process.env.NODE_ENV || "development");
+console.log("- JWT_SECRET:", process.env.JWT_SECRET ? "Set" : "Not set");
+console.log("- PORT:", process.env.PORT || "3001");
 
 // Define API key for Google AI
 const API_KEY =
@@ -59,12 +66,19 @@ const amadeus = new Amadeus({
 app.use(
   cors({
     origin: "*", // Be more restrictive in production
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-access-token"],
+    exposedHeaders: ["Authorization"],
+    credentials: true,
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   })
 );
 
-// Add these headers explicitly for better CORS support
+// Explicitly handle OPTIONS requests for CORS preflight
+app.options("*", cors());
+
+// Add these headers to all responses
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
@@ -153,6 +167,7 @@ app.use("/api/hotels", hotelRoutes);
 app.use("/api/flights", flightRoutes);
 app.use("/api/preferences", userPreferencesRoutes);
 app.use("/api/expenses", expenseRoutes);
+app.use("/api/admin", adminRoutes);
 
 // ====== AI FEATURE ROUTES ======
 

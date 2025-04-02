@@ -290,6 +290,14 @@ const Login = ({ navigation }) => {
                       </Text>
                     </TouchableOpacity>
 
+                    {/* Admin Login Link */}
+                    <TouchableOpacity
+                      style={style.adminLoginContainer}
+                      onPress={() => navigation.navigate("AdminLogin")}
+                    >
+                      <Text style={style.adminLogin}>Admin Login</Text>
+                    </TouchableOpacity>
+
                     {/* Login button */}
                     <LoginButton
                       handleSignIn={handleLogin}
@@ -533,6 +541,15 @@ const style = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     zIndex: 10,
+  },
+  adminLoginContainer: {
+    alignItems: "center",
+    marginTop: 16,
+  },
+  adminLogin: {
+    fontSize: 14,
+    color: "#a0a0a0",
+    textDecorationLine: "underline",
   },
 });
 

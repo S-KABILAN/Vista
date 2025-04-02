@@ -2,6 +2,7 @@ const JwtStrategy = require("passport-jwt").Strategy;
 const ExtractJwt = require("passport-jwt").ExtractJwt;
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const User = require("../models/User");
+const Admin = require("../models/Admin");
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret";
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
@@ -26,6 +27,13 @@ const configurePassport = (passport) => {
     new JwtStrategy(jwtOptions, async (payload, done) => {
       try {
         console.log("JWT payload received:", JSON.stringify(payload));
+
+        // If payload is empty or invalid, reject
+        if (!payload) {
+          console.log("Empty payload");
+          return done(null, false);
+        }
+
         // Check both payload.id and payload._id to handle different token formats
         const userId = payload.id || payload._id;
 
@@ -34,6 +42,29 @@ const configurePassport = (passport) => {
           return done(null, false);
         }
 
+        // Check if this is an admin token
+        if (payload.isAdmin === true) {
+          console.log(
+            "Admin token detected, looking for admin with ID:",
+            userId
+          );
+          try {
+            const admin = await Admin.findById(userId);
+            if (admin) {
+              console.log("Admin found:", admin.email);
+              console.log("Admin auth successful");
+              return done(null, admin);
+            } else {
+              console.log("No admin found with ID:", userId);
+              return done(null, false);
+            }
+          } catch (adminError) {
+            console.error("Error finding admin:", adminError);
+            return done(null, false);
+          }
+        }
+
+        // Regular user authentication
         console.log("Looking for user with ID:", userId);
         const user = await User.findById(userId);
 

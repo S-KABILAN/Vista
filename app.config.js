@@ -37,7 +37,7 @@ export default {
         projectId: "307ea7f0-62b5-41f7-95fd-2c20a4453009",
       },
     },
-    scheme: "vistatravel",
+    scheme: "vista-travel",
     newArchEnabled: true,
   },
 };
