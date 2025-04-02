@@ -947,6 +947,219 @@ const AITravelPlanner = ({ navigation, route }) => {
       );
     }
 
+    // Function to fetch more attractions using Google Places API
+    const fetchAdditionalAttractions = async (coords) => {
+      if (!coords || !coords.lat || !coords.lng) {
+        console.log("Cannot fetch attractions: Invalid coordinates");
+        return [];
+      }
+
+      try {
+        console.log(
+          `Fetching additional attractions for ${plan.destination} at coordinates:`,
+          coords
+        );
+
+        // Define multiple search types to get more diverse results
+        const searchTypes = [
+          "tourist_attraction",
+          "amusement_park",
+          "museum",
+          "park",
+          "point_of_interest",
+          "landmark",
+        ];
+
+        let allResults = [];
+
+        // Fetch results for each search type
+        for (const type of searchTypes) {
+          console.log(`Fetching attractions of type: ${type}`);
+
+          // Initial request with no page token
+          let nextPageToken;
+          let pageCount = 0;
+
+          do {
+            // Construct the base URL
+            let url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${coords.lat},${coords.lng}&radius=50000&type=${type}&key=${googleapis}`;
+
+            // Add page token if we have one from previous request
+            if (nextPageToken) {
+              url += `&pagetoken=${nextPageToken}`;
+              // Need to wait a bit before using the page token
+              await new Promise((resolve) => setTimeout(resolve, 2000));
+            }
+
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data.status === "OK" && data.results) {
+              console.log(
+                `Found ${data.results.length} ${type} attractions on page ${
+                  pageCount + 1
+                }`
+              );
+
+              // Add this page's results to our collection
+              allResults = [...allResults, ...data.results];
+
+              // Get the next page token if available
+              nextPageToken = data.next_page_token;
+              pageCount++;
+            } else {
+              console.log(
+                `No ${type} attractions found or error:`,
+                data.status
+              );
+              nextPageToken = null;
+            }
+
+            // Limit to 3 pages per type to avoid overloading
+            if (pageCount >= 2) {
+              console.log(
+                `Reached maximum pages for ${type}, moving to next type`
+              );
+              break;
+            }
+          } while (nextPageToken);
+        }
+
+        // Process all results and remove duplicates
+        if (allResults.length > 0) {
+          console.log(
+            `Total attractions found: ${allResults.length} before deduplication`
+          );
+
+          // Format attractions to match the expected structure
+          const formattedAttractions = allResults.map((place) => ({
+            name: place.name,
+            rating: place.rating,
+            address: place.vicinity,
+            photos: place.photos || [],
+            place_id: place.place_id,
+            types: place.types || [],
+          }));
+
+          // Remove duplicates based on place_id
+          const uniqueAttractions = Array.from(
+            new Map(formattedAttractions.map((a) => [a.place_id, a])).values()
+          );
+
+          console.log(
+            `Returning ${uniqueAttractions.length} unique attractions`
+          );
+          return uniqueAttractions;
+        }
+
+        return [];
+      } catch (error) {
+        console.error("Error fetching additional attractions:", error);
+        return [];
+      }
+    };
+
+    // Function to fetch more hotels using Google Places API
+    const fetchAdditionalHotels = async (coords) => {
+      if (!coords || !coords.lat || !coords.lng) {
+        console.log("Cannot fetch hotels: Invalid coordinates");
+        return [];
+      }
+
+      try {
+        console.log(
+          `Fetching additional hotels for ${plan.destination} at coordinates:`,
+          coords
+        );
+
+        // Define search types for accommodations
+        const searchTypes = ["lodging", "hotel", "resort"];
+
+        let allResults = [];
+
+        // Fetch results for each search type
+        for (const type of searchTypes) {
+          console.log(`Fetching hotels of type: ${type}`);
+
+          // Initial request with no page token
+          let nextPageToken;
+          let pageCount = 0;
+
+          do {
+            // Construct the base URL
+            let url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${coords.lat},${coords.lng}&radius=50000&type=${type}&key=${googleapis}`;
+
+            // Add page token if we have one from previous request
+            if (nextPageToken) {
+              url += `&pagetoken=${nextPageToken}`;
+              // Need to wait a bit before using the page token
+              await new Promise((resolve) => setTimeout(resolve, 2000));
+            }
+
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data.status === "OK" && data.results) {
+              console.log(
+                `Found ${data.results.length} ${type} hotels on page ${
+                  pageCount + 1
+                }`
+              );
+
+              // Add this page's results to our collection
+              allResults = [...allResults, ...data.results];
+
+              // Get the next page token if available
+              nextPageToken = data.next_page_token;
+              pageCount++;
+            } else {
+              console.log(`No ${type} hotels found or error:`, data.status);
+              nextPageToken = null;
+            }
+
+            // Limit to 3 pages per type to avoid overloading
+            if (pageCount >= 2) {
+              console.log(
+                `Reached maximum pages for ${type}, moving to next type`
+              );
+              break;
+            }
+          } while (nextPageToken);
+        }
+
+        // Process all results and remove duplicates
+        if (allResults.length > 0) {
+          console.log(
+            `Total hotels found: ${allResults.length} before deduplication`
+          );
+
+          // Format hotels to match the expected structure
+          const formattedHotels = allResults.map((place) => ({
+            name: place.name,
+            rating: place.rating,
+            address: place.vicinity,
+            photos: place.photos || [],
+            place_id: place.place_id,
+            price_level: place.price_level || 2,
+            types: place.types || [],
+          }));
+
+          // Remove duplicates based on place_id
+          const uniqueHotels = Array.from(
+            new Map(formattedHotels.map((h) => [h.place_id, h])).values()
+          );
+
+          console.log(`Returning ${uniqueHotels.length} unique hotels`);
+          return uniqueHotels;
+        }
+
+        return [];
+      } catch (error) {
+        console.error("Error fetching additional hotels:", error);
+        return [];
+      }
+    };
+
     return (
       <ScrollView
         style={styles.resultContainer}
@@ -1095,7 +1308,7 @@ const AITravelPlanner = ({ navigation, route }) => {
               <Text style={styles.planCardTitle}>Top Attractions</Text>
               <TouchableOpacity
                 style={styles.viewAllButton}
-                onPress={() => {
+                onPress={async () => {
                   // Format coordinates properly
                   let coords;
 
@@ -1120,10 +1333,39 @@ const AITravelPlanner = ({ navigation, route }) => {
                   }
 
                   // Get the full attractions array if available
-                  const attractions =
+                  let attractions =
                     plan.destinationData.attractions ||
                     plan.destinationData.topAttractions ||
                     [];
+
+                  // If we don't have many attractions, try to fetch more
+                  if (attractions.length < 10 && coords) {
+                    setLoading(true);
+                    try {
+                      const additionalAttractions =
+                        await fetchAdditionalAttractions(coords);
+                      if (additionalAttractions.length > 0) {
+                        // Combine existing and new attractions, removing duplicates by name
+                        const allAttractions = [
+                          ...attractions,
+                          ...additionalAttractions,
+                        ];
+                        const uniqueAttractions = Array.from(
+                          new Map(
+                            allAttractions.map((a) => [a.name, a])
+                          ).values()
+                        );
+                        attractions = uniqueAttractions;
+                      }
+                    } catch (error) {
+                      console.error(
+                        "Error getting additional attractions:",
+                        error
+                      );
+                    } finally {
+                      setLoading(false);
+                    }
+                  }
 
                   console.log(
                     `Navigating to AllAttractions with ${attractions.length} attractions and coordinates:`,
@@ -1149,24 +1391,30 @@ const AITravelPlanner = ({ navigation, route }) => {
                   {attraction.photos && attraction.photos.length > 0 ? (
                     <TouchableOpacity
                       onPress={() =>
-                        openFullscreenImage(
-                          attraction.photos[0].photo_reference
-                            ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${attraction.photos[0].photo_reference}&key=${googleapis}`
-                            : attraction.photos[0]
-                        )
+                        openFullscreenImage(ensureImageAvailable(attraction))
                       }
                       style={styles.attractionImageContainer}
                     >
                       <Image
                         source={{
-                          uri: attraction.photos[0].photo_reference
-                            ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${attraction.photos[0].photo_reference}&key=${googleapis}`
-                            : attraction.photos[0],
+                          uri: ensureImageAvailable(attraction),
                         }}
                         style={styles.attractionImage}
                       />
                     </TouchableOpacity>
-                  ) : null}
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.attractionImageContainer}
+                      onPress={() =>
+                        openFullscreenImage(ensureImageAvailable(attraction))
+                      }
+                    >
+                      <Image
+                        source={{ uri: ensureImageAvailable(attraction) }}
+                        style={styles.attractionImage}
+                      />
+                    </TouchableOpacity>
+                  )}
 
                   <View style={styles.attractionDetails}>
                     <Text style={styles.attractionName}>{attraction.name}</Text>
@@ -1503,7 +1751,7 @@ const AITravelPlanner = ({ navigation, route }) => {
           <Text style={styles.planCardTitle}>Recommended Hotels</Text>
           <TouchableOpacity
             style={styles.viewAllButton}
-            onPress={() => {
+            onPress={async () => {
               // Format coordinates properly
               let coords;
 
@@ -1529,10 +1777,30 @@ const AITravelPlanner = ({ navigation, route }) => {
 
               // Get the full arrays of hotels
               const amadeusHotels = plan.destinationData?.amadeusHotels || [];
-              const googleHotels =
+              let googleHotels =
                 plan.destinationData?.hotels ||
                 plan.destinationData?.recommendedHotels ||
                 [];
+
+              // If we don't have many Google hotels, try to fetch more
+              if (googleHotels.length < 8 && coords) {
+                setLoading(true);
+                try {
+                  const additionalHotels = await fetchAdditionalHotels(coords);
+                  if (additionalHotels.length > 0) {
+                    // Combine existing and new hotels, removing duplicates by name
+                    const allHotels = [...googleHotels, ...additionalHotels];
+                    const uniqueHotels = Array.from(
+                      new Map(allHotels.map((h) => [h.name, h])).values()
+                    );
+                    googleHotels = uniqueHotels;
+                  }
+                } catch (error) {
+                  console.error("Error getting additional hotels:", error);
+                } finally {
+                  setLoading(false);
+                }
+              }
 
               console.log(
                 `Navigating to AllHotels with ${amadeusHotels.length} Amadeus hotels, ${googleHotels.length} Google hotels and coordinates:`,
@@ -1584,12 +1852,7 @@ const AITravelPlanner = ({ navigation, route }) => {
                   rating: hotel?.rating || "N/A",
                   address: hotel?.address || "Address not available",
                   category: "Hotel",
-                  photo:
-                    hotel?.photos && hotel?.photos.length > 0
-                      ? hotel.photos[0].photo_reference
-                        ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${hotel.photos[0].photo_reference}&key=${googleapis}`
-                        : hotel.photos[0].url || hotel.photos[0]
-                      : null,
+                  photo: ensureImageAvailable(hotel),
                   price: hotel?.price_level
                     ? "$".repeat(hotel.price_level)
                     : "Price unavailable",
@@ -1646,6 +1909,52 @@ const AITravelPlanner = ({ navigation, route }) => {
     // Default estimate based on destination name length (this is just for demo purposes)
     // In a real app, you would use a distance calculation API or geolocation
     return Math.max(3, Math.min(20, Math.floor(destination.length * 1.2)));
+  };
+
+  // Helper function to ensure we have images for attractions/hotels
+  const ensureImageAvailable = (item) => {
+    if (item.photos && item.photos.length > 0) {
+      // If we have a photo_reference, return the Google Places photo URL
+      if (item.photos[0].photo_reference) {
+        return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${item.photos[0].photo_reference}&key=${googleapis}`;
+      }
+      // If we have a direct URL, return it
+      else if (item.photos[0].url) {
+        return item.photos[0].url;
+      }
+      // If photos is just a string, return it
+      else if (typeof item.photos[0] === "string") {
+        return item.photos[0];
+      }
+    }
+
+    // Fallback to a placeholder image based on the item type or name
+    const hotelPlaceholders = [
+      "https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=1000&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?q=80&w=1000&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1445019980597-93fa8acb246c?q=80&w=1000&auto=format&fit=crop",
+    ];
+
+    const attractionPlaceholders = [
+      "https://images.unsplash.com/photo-1552832230-c0197dd311b5?q=80&w=1000&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1533929736458-ca588d08c8be?q=80&w=1000&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1500835556837-99ac94a94552?q=80&w=1000&auto=format&fit=crop",
+    ];
+
+    if (
+      (item.types && item.types.includes("lodging")) ||
+      item.category === "Hotel"
+    ) {
+      // Return a random hotel placeholder
+      return hotelPlaceholders[
+        Math.floor(Math.random() * hotelPlaceholders.length)
+      ];
+    } else {
+      // Return a random attraction placeholder
+      return attractionPlaceholders[
+        Math.floor(Math.random() * attractionPlaceholders.length)
+      ];
+    }
   };
 
   // Helper function to estimate train travel time
