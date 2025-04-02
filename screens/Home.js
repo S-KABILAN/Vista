@@ -15,7 +15,6 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { firebase_auth } from "../FirebaseAuth";
-import Tabbar from "../components/Tabbar";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import * as Location from "expo-location";
@@ -683,8 +682,6 @@ const Home = ({ route }) => {
 
         <View style={{ height: 30 }} />
       </ScrollView>
-
-      <Tabbar />
     </SafeAreaView>
   );
 };

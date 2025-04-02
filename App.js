@@ -26,7 +26,6 @@ import Register from "./screens/Register";
 import NamePage from "./screens/NamePage";
 import Home from "./screens/Home";
 import Explore from "./screens/Explore";
-import Notifications from "./screens/Notifications";
 import Globe from "./screens/Globe";
 import Profile from "./screens/Profile";
 import OnboardingScreen1 from "./screens/OnboardingScreen1";

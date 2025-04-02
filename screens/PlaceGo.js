@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, Alert, Platform, Linking } from 'react-native';
 import { ScrollView } from 'react-native-web';
-import Tabbar from '../components/Tabbar';
 import { useNavigation } from '@react-navigation/native';
 import { googleapis } from '../constants/constant';
 
@@ -105,7 +104,7 @@ const PlaceGo = ({ route }) => {
             <Text>Welcome to PlaceGo Screen!</Text>
             <Text>City: {city}</Text>
             <Text>Country: {country}</Text>
-            <Tabbar/>
+            
         </View>
     );
 };
