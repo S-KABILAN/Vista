@@ -14,6 +14,7 @@ const userRoutes = require("./routes/users");
 const travelPlanRoutes = require("./routes/travelPlans");
 const userPreferencesRoutes = require("./routes/userPreferences");
 const adminRoutes = require("./routes/admin");
+const notificationRoutes = require("./routes/notifications");
 const { configurePassport } = require("./config/passport");
 const JwtStrategy = require("passport-jwt").Strategy;
 const ExtractJwt = require("passport-jwt").ExtractJwt;
@@ -173,7 +174,7 @@ app.use("/api/flights", flightRoutes);
 app.use("/api/preferences", userPreferencesRoutes);
 app.use("/api/expenses", expenseRoutes);
 app.use("/api/admin", adminRoutes);
-// app.use("/api/notifications", notificationRoutes);
+app.use("/api/notifications", notificationRoutes);
 app.use("/api/ai-recommendations", aiRecommendationsRoutes);
 
 // ====== AI FEATURE ROUTES ======

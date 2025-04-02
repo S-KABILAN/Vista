@@ -38,6 +38,8 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { weatherapi } from "../constants/constant";
 import { useUserPreferences } from "../context/UserPreferencesContext";
+import NotificationBell from "../components/NotificationBell";
+import { useNotification } from "../context/NotificationContext";
 
 const { height, width } = Dimensions.get("window");
 const cardWidth = width * 0.7;
@@ -55,6 +57,7 @@ const Home = ({ route }) => {
   const [currentLocation, setCurrentLocation] = useState(null);
   const [loading, setLoading] = useState(true);
   const { preferences } = useUserPreferences();
+  const { fetchUnreadCount } = useNotification();
 
   const fetchWeatherData = async (lat, lng) => {
     try {
@@ -457,29 +460,39 @@ const Home = ({ route }) => {
     </>
   );
 
+  const testNotification = () => {
+    navigation.navigate("NotificationsTest");
+  };
+
+  const renderHeader = () => (
+    <View style={styles.header}>
+      <View>
+        <Text style={styles.greeting}>Good Morning,</Text>
+        <Text style={styles.username}>{user?.displayName || "Traveler"}</Text>
+      </View>
+
+      <View style={styles.rightHeaderIcons}>
+        <NotificationBell />
+        <TouchableOpacity
+          style={styles.profileButton}
+          onPress={() => navigation.navigate("Profile")}
+        >
+          <Image
+            source={{
+              uri: user?.photoURL || "https://via.placeholder.com/150",
+            }}
+            style={styles.profileImage}
+          />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Good Morning,</Text>
-            <Text style={styles.username}>
-              {user?.displayName || "Traveler"}
-            </Text>
-          </View>
-          <TouchableOpacity
-            style={styles.profileButton}
-            onPress={() => navigation.navigate("Profile")}
-          >
-            <Image
-              source={{
-                uri: user?.photoURL || "https://via.placeholder.com/150",
-              }}
-              style={styles.profileImage}
-            />
-          </TouchableOpacity>
-        </View>
+        {renderHeader()}
 
         <TouchableOpacity
           style={styles.weatherContainer}
@@ -1073,6 +1086,11 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "600",
+  },
+  rightHeaderIcons: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
   },
 });
 

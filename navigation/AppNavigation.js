@@ -26,6 +26,8 @@ import TransportOptions from "../screens/TransportOptions";
 import AllDestinations from "../screens/AllDestinations";
 // Import User Preferences Onboarding
 import UserPreferencesOnboarding from "../screens/UserPreferencesOnboarding";
+// Import Notifications Test Screen
+import NotificationsTest from "../screens/NotificationsTest";
 
 // Import our new AI feature screens
 import PersonalizedRecommendations from "../screens/PersonalizedRecommendations";
@@ -125,6 +127,11 @@ const AppNavigation = () => {
         <Stack.Screen
           name="UserPreferencesOnboarding"
           component={UserPreferencesOnboarding}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="NotificationsTest"
+          component={NotificationsTest}
           options={{ headerShown: false }}
         />
 

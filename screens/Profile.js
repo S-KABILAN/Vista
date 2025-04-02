@@ -236,6 +236,15 @@ const Profile = ({ navigation }) => {
             />
           </View>
 
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate("NotificationsTest")}
+          >
+            <Ionicons name="notifications-circle" size={24} color="#3498db" />
+            <Text style={styles.menuItemText}>Test Notifications</Text>
+            <AntDesign name="right" size={18} color="#ccc" />
+          </TouchableOpacity>
+
           <View style={styles.menuItem}>
             <Ionicons name="moon" size={24} color="#3498db" />
             <Text style={styles.menuItemText}>Dark Mode</Text>

@@ -19,6 +19,8 @@ import {
 } from "./context/UserPreferencesContext";
 // Admin Context Provider
 import { AdminProvider, useAdmin } from "./context/AdminContext";
+// Notification Context Provider
+import { NotificationProvider } from "./context/NotificationContext";
 
 // Screens
 import Login from "./screens/Login";
@@ -219,7 +221,9 @@ export default function App() {
       <AdminProvider>
         <AuthProvider>
           <UserPreferencesProvider>
-            <AdminCheckWrapper />
+            <NotificationProvider>
+              <AdminCheckWrapper />
+            </NotificationProvider>
           </UserPreferencesProvider>
         </AuthProvider>
       </AdminProvider>
