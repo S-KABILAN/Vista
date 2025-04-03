@@ -469,6 +469,12 @@ const Home = ({ route }) => {
       <View>
         <Text style={styles.greeting}>Good Morning,</Text>
         <Text style={styles.username}>{user?.displayName || "Traveler"}</Text>
+        <TouchableOpacity
+          style={styles.testNotificationBtn}
+          onPress={testNotification}
+        >
+          <Text style={styles.testNotificationBtnText}>Test Notifications</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.rightHeaderIcons}>
@@ -1091,6 +1097,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
+  },
+  testNotificationBtn: {
+    backgroundColor: "#3498db20",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 20,
+    marginTop: 5,
+    alignSelf: "flex-start",
+  },
+  testNotificationBtnText: {
+    color: "#3498db",
+    fontSize: 12,
+    fontWeight: "600",
   },
 });
 

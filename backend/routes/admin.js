@@ -5,6 +5,7 @@ const passport = require("passport");
 const Admin = require("../models/Admin");
 const User = require("../models/User");
 const TravelPlan = require("../models/TravelPlan");
+const notificationService = require("../services/notificationService");
 
 // Admin authentication middleware - verifies admin JWT token
 const authenticateAdmin = passport.authenticate("jwt", { session: false });
@@ -602,6 +603,154 @@ router.delete(
         success: false,
         message: "Server error deleting travel plan",
         error: error.message,
+      });
+    }
+  }
+);
+
+/**
+ * @route POST /api/admin/notifications/send
+ * @desc Send a notification to all users or selected users
+ * @access Private (Admin only)
+ */
+router.post(
+  "/notifications/send",
+  authenticateAdmin,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const {
+        title,
+        message,
+        type = "info",
+        sendToAll = false,
+        userIds = [],
+      } = req.body;
+
+      // Validate request
+      if (!title || !title.trim()) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Notification title is required" });
+      }
+
+      if (!message || !message.trim()) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "Notification message is required",
+          });
+      }
+
+      if (!sendToAll && (!userIds || userIds.length === 0)) {
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "Must specify users to send to or set sendToAll to true",
+          });
+      }
+
+      let result;
+      const notificationData = { title, message, type, sender: req.admin._id };
+
+      // Add the current admin to the notification data
+      notificationData.sentBy = {
+        adminId: req.admin._id,
+        email: req.admin.email,
+        name: req.admin.fullName || req.admin.email,
+      };
+
+      // Send to all users or selected users
+      if (sendToAll) {
+        console.log(
+          `Admin ${req.admin.email} sending notification to all users: ${title}`
+        );
+        result = await notificationService.createForAllUsers({
+          title,
+          message,
+          type,
+          data: notificationData,
+        });
+
+        // Store the notification in admin's sent notifications
+        await notificationService.recordAdminNotification({
+          title,
+          message,
+          type,
+          sentBy: req.admin._id,
+          sentTo: "All Users",
+          sentAt: new Date(),
+        });
+
+        return res.json({
+          success: true,
+          message: `Notification sent to all users (${
+            result.length || 0
+          } users)`,
+          notificationId: Date.now().toString(),
+          count: result.length || 0,
+        });
+      } else {
+        console.log(
+          `Admin ${req.admin.email} sending notification to ${userIds.length} users: ${title}`
+        );
+        result = await notificationService.createForUsers({
+          userIds,
+          title,
+          message,
+          type,
+          data: notificationData,
+        });
+
+        // Store the notification in admin's sent notifications
+        await notificationService.recordAdminNotification({
+          title,
+          message,
+          type,
+          sentBy: req.admin._id,
+          sentTo: `${userIds.length} selected users`,
+          sentAt: new Date(),
+        });
+
+        return res.json({
+          success: true,
+          message: `Notification sent to ${userIds.length} users`,
+          notificationId: Date.now().toString(),
+          count: result.length || 0,
+        });
+      }
+    } catch (error) {
+      console.error("Error sending admin notification:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error while sending notification",
+      });
+    }
+  }
+);
+
+/**
+ * @route GET /api/admin/notifications/sent
+ * @desc Get notifications sent by the admin
+ * @access Private (Admin only)
+ */
+router.get(
+  "/notifications/sent",
+  authenticateAdmin,
+  isAdmin,
+  async (req, res) => {
+    try {
+      const notifications = await notificationService.getAdminSentNotifications(
+        req.admin._id
+      );
+      return res.json({ success: true, notifications });
+    } catch (error) {
+      console.error("Error fetching sent admin notifications:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Server error while fetching sent notifications",
       });
     }
   }

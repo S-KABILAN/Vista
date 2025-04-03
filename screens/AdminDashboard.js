@@ -264,6 +264,15 @@ const AdminDashboard = ({ navigation }) => {
 
             <TouchableOpacity
               style={styles.actionCard}
+              onPress={() => navigation.navigate("AdminNotifications")}
+            >
+              <Ionicons name="notifications" size={32} color="#3498db" />
+              <Text style={styles.actionTitle}>Notifications</Text>
+              <Text style={styles.actionDesc}>Send notifications to users</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionCard}
               onPress={() => navigation.navigate("AdminSettings")}
             >
               <Ionicons name="settings-sharp" size={32} color="#3498db" />

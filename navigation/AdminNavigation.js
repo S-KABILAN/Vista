@@ -9,6 +9,7 @@ import AdminUserList from "../screens/AdminUserList";
 import AdminContentManager from "../screens/AdminContentManager";
 import AdminTravelPlanList from "../screens/AdminTravelPlanList";
 import AdminSettings from "../screens/AdminSettings";
+import AdminNotifications from "../screens/AdminNotifications";
 
 // Create stack navigator
 const Stack = createNativeStackNavigator();
@@ -30,6 +31,10 @@ const AdminNavigation = () => {
           component={AdminTravelPlanList}
         />
         <Stack.Screen name="AdminSettings" component={AdminSettings} />
+        <Stack.Screen
+          name="AdminNotifications"
+          component={AdminNotifications}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

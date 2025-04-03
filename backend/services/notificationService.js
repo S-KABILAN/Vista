@@ -1,10 +1,24 @@
 const Notification = require("../models/Notification");
 const User = require("../models/User");
+const AdminNotification = require("../models/AdminNotification");
+
+// Socket.IO instance
+let io = null;
 
 /**
  * Service for managing notifications
  */
 const notificationService = {
+  /**
+   * Set the Socket.IO instance
+   *
+   * @param {Object} socketIo - The Socket.IO instance
+   */
+  setSocketIO: (socketIo) => {
+    io = socketIo;
+    console.log("Socket.IO instance set in notification service");
+  },
+
   /**
    * Create a notification for a specific user
    *
@@ -37,6 +51,25 @@ const notificationService = {
       });
 
       await notification.save();
+
+      // Emit real-time notification if Socket.IO is available
+      if (io) {
+        io.to(`user:${userId}`).emit("newNotification", {
+          notification: {
+            _id: notification._id,
+            title,
+            message,
+            type,
+            read: false,
+            createdAt: notification.createdAt,
+          },
+          count: await Notification.countDocuments({
+            user: userId,
+            read: false,
+          }),
+        });
+      }
+
       return notification;
     } catch (error) {
       console.error("Error creating notification:", error);
@@ -75,7 +108,37 @@ const notificationService = {
         createdAt: new Date(),
       }));
 
-      return await Notification.insertMany(notifications);
+      const savedNotifications = await Notification.insertMany(notifications);
+
+      // Emit real-time notifications if Socket.IO is available
+      if (io) {
+        // Notify each user individually
+        for (const userId of userIds) {
+          const userNotification = savedNotifications.find(
+            (n) => n.user.toString() === userId.toString()
+          );
+          if (userNotification) {
+            const unreadCount = await Notification.countDocuments({
+              user: userId,
+              read: false,
+            });
+
+            io.to(`user:${userId}`).emit("newNotification", {
+              notification: {
+                _id: userNotification._id,
+                title,
+                message,
+                type,
+                read: false,
+                createdAt: userNotification.createdAt,
+              },
+              count: unreadCount,
+            });
+          }
+        }
+      }
+
+      return savedNotifications;
     } catch (error) {
       console.error("Error creating multiple notifications:", error);
       throw error;
@@ -111,7 +174,32 @@ const notificationService = {
         createdAt: new Date(),
       }));
 
-      return await Notification.insertMany(notifications);
+      const savedNotifications = await Notification.insertMany(notifications);
+
+      // Emit real-time notification to all connected users if Socket.IO is available
+      if (io) {
+        // Broadcast to all clients
+        io.emit("broadcastNotification", {
+          title,
+          message,
+          type,
+          createdAt: new Date(),
+        });
+
+        // Also notify each user individually to update their unread count
+        for (const userId of userIds) {
+          const unreadCount = await Notification.countDocuments({
+            user: userId,
+            read: false,
+          });
+
+          io.to(`user:${userId}`).emit("unreadCountUpdated", {
+            count: unreadCount,
+          });
+        }
+      }
+
+      return savedNotifications;
     } catch (error) {
       console.error("Error creating notifications for all users:", error);
       throw error;
@@ -164,6 +252,81 @@ const notificationService = {
         type: "promotion",
         data: promoData,
       });
+    }
+  },
+
+  /**
+   * Record a notification sent by an admin
+   *
+   * @param {Object} data - Notification data
+   * @param {string} data.title - Notification title
+   * @param {string} data.message - Notification message
+   * @param {string} data.type - Notification type
+   * @param {string} data.sentBy - Admin ID who sent the notification
+   * @param {string} data.sentTo - Description of recipients ("All Users" or "X selected users")
+   * @param {Date} data.sentAt - When the notification was sent
+   * @returns {Promise<Object>} - The created admin notification record
+   */
+  recordAdminNotification: async (data) => {
+    try {
+      const {
+        title,
+        message,
+        type = "info",
+        sentBy,
+        sentTo,
+        sentAt = new Date(),
+        data: additionalData = {},
+      } = data;
+
+      const adminNotification = new AdminNotification({
+        title,
+        message,
+        type,
+        sentBy,
+        sentTo,
+        sentAt,
+        data: additionalData,
+      });
+
+      await adminNotification.save();
+
+      // Notify all connected admins about the new notification sent
+      if (io) {
+        io.to("admins").emit("adminNotificationSent", {
+          notification: {
+            _id: adminNotification._id,
+            title,
+            message,
+            type,
+            sentTo,
+            sentAt,
+          },
+        });
+      }
+
+      return adminNotification;
+    } catch (error) {
+      console.error("Error recording admin notification:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get notifications sent by a specific admin
+   *
+   * @param {string} adminId - The admin ID
+   * @param {number} limit - Maximum number of notifications to return (default: 50)
+   * @returns {Promise<Array<Object>>} - Array of sent notifications
+   */
+  getAdminSentNotifications: async (adminId, limit = 50) => {
+    try {
+      return await AdminNotification.find({ sentBy: adminId })
+        .sort({ sentAt: -1 })
+        .limit(limit);
+    } catch (error) {
+      console.error("Error getting admin sent notifications:", error);
+      throw error;
     }
   },
 };

@@ -32,6 +32,8 @@ const Place = require("./place");
 const UserDetails = require("./userdetails");
 const TravelPlan = require("./models/TravelPlan");
 const aiRecommendationsRoutes = require("./routes/aiRecommendations");
+const http = require("http");
+const socketIo = require("socket.io");
 
 // Log environment variables for debugging (without exposing secrets)
 console.log("Environment variables loaded:");
@@ -47,6 +49,85 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || "vista-travel-secret-key";
 const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY;
+
+// Create HTTP server
+const server = http.createServer(app);
+
+// Initialize Socket.IO with CORS
+const io = socketIo(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  },
+});
+
+// Socket.IO connection handling
+io.on("connection", (socket) => {
+  console.log("New client connected, socket ID:", socket.id);
+
+  // Store user info in socket when they authenticate
+  socket.on("authenticate", (token) => {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+
+      socket.userId = decoded.id;
+      socket.join(`user:${decoded.id}`); // Join user-specific room
+
+      console.log(`User ${decoded.id} authenticated on socket ${socket.id}`);
+      socket.emit("authenticated", { status: "success" });
+    } catch (error) {
+      console.error("Socket authentication error:", error);
+      socket.emit("authenticated", {
+        status: "error",
+        message: "Invalid token",
+      });
+    }
+  });
+
+  // Admin authentication
+  socket.on("adminAuthenticate", (token) => {
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+
+      if (!decoded.isAdmin) {
+        socket.emit("adminAuthenticated", {
+          status: "error",
+          message: "Not an admin",
+        });
+        return;
+      }
+
+      socket.isAdmin = true;
+      socket.adminId = decoded.id;
+      socket.join("admins"); // Join admin room
+
+      console.log(`Admin ${decoded.id} authenticated on socket ${socket.id}`);
+      socket.emit("adminAuthenticated", { status: "success" });
+    } catch (error) {
+      console.error("Admin socket authentication error:", error);
+      socket.emit("adminAuthenticated", {
+        status: "error",
+        message: "Invalid token",
+      });
+    }
+  });
+
+  socket.on("disconnect", () => {
+    console.log("Client disconnected, socket ID:", socket.id);
+  });
+});
+
+// Middleware to attach Socket.IO to request object
+app.use((req, res, next) => {
+  req.io = io;
+  next();
+});
+
+// Update the notification service to use Socket.IO
+const notificationService = require("./services/notificationService");
+notificationService.setSocketIO(io);
 
 // Verify if API key is set
 if (!GOOGLE_PLACES_API_KEY) {
@@ -1236,12 +1317,7 @@ app.get("/ping", (req, res) => {
   });
 });
 
-// Start the server
-app.listen(PORT, "0.0.0.0", () => {
+// Start the server with Socket.IO
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`Local access: http://localhost:${PORT}`);
-  console.log(`For device access: http://YOUR_MACHINE_IP:${PORT}`);
-  console.log(
-    `Make sure frontend config.js and apiConfig.js have matching URLs`
-  );
 });
