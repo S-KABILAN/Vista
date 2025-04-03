@@ -635,21 +635,17 @@ router.post(
       }
 
       if (!message || !message.trim()) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "Notification message is required",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "Notification message is required",
+        });
       }
 
       if (!sendToAll && (!userIds || userIds.length === 0)) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "Must specify users to send to or set sendToAll to true",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "Must specify users to send to or set sendToAll to true",
+        });
       }
 
       let result;
@@ -755,5 +751,36 @@ router.get(
     }
   }
 );
+
+/**
+ * @route GET /api/admin/users
+ * @desc Get all users for admin to send notifications to
+ * @access Private (Admin only)
+ */
+router.get("/users", authenticateAdmin, isAdmin, async (req, res) => {
+  try {
+    // Find all active users
+    const users = await User.find(
+      { isActive: true },
+      "_id email fullName displayName createdAt"
+    ).sort({ createdAt: -1 });
+
+    return res.json({
+      success: true,
+      users: users.map((user) => ({
+        _id: user._id,
+        email: user.email,
+        displayName:
+          user.fullName || user.displayName || user.email.split("@")[0],
+      })),
+    });
+  } catch (error) {
+    console.error("Error fetching users for admin:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while fetching users",
+    });
+  }
+});
 
 module.exports = router;

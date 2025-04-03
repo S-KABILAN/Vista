@@ -128,58 +128,85 @@ const AdminNotifications = ({ navigation }) => {
   const fetchUsers = async () => {
     try {
       setLoadingUsers(true);
-      // Define mock users for when API is not available
-      const mockUsers = [
-        { _id: "1", email: "john@example.com", displayName: "John Doe" },
-        { _id: "2", email: "jane@example.com", displayName: "Jane Smith" },
-        { _id: "3", email: "bob@example.com", displayName: "Bob Johnson" },
-        { _id: "4", email: "sarah@example.com", displayName: "Sarah Williams" },
-        { _id: "5", email: "mike@example.com", displayName: "Mike Brown" },
-      ];
+
+      if (!adminToken) {
+        console.log("No admin token available for fetching users");
+        Alert.alert(
+          "Authentication Required",
+          "You need to be logged in as an admin to fetch real users."
+        );
+        return;
+      }
+
+      console.log("Attempting to fetch real users from API");
 
       try {
-        // Try to fetch from API with a timeout
+        // Try to fetch real users from the backend API
         const response = await axios.get(`${BACKEND_URL}/api/admin/users`, {
           headers: {
-            Authorization: `Bearer ${adminToken}`,
+            Authorization: `Bearer ${adminToken.replace("Bearer ", "")}`,
           },
           timeout: 5000,
         });
 
-        if (response.data && response.data.success) {
-          const apiUsers = response.data.users || [];
-          console.log(`Fetched ${apiUsers.length} users from API`);
+        if (
+          response.data &&
+          response.data.success &&
+          Array.isArray(response.data.users)
+        ) {
+          const apiUsers = response.data.users;
+          console.log(
+            `Successfully fetched ${apiUsers.length} real users from API`
+          );
 
-          // Map API users to ensure they have the expected format
-          const formattedUsers = apiUsers.map((user) => ({
-            _id: user._id,
-            email: user.email,
-            displayName:
-              user.fullName || user.displayName || user.email.split("@")[0],
-          }));
-
-          setUsers(formattedUsers);
+          // Set real users in state
+          setUsers(apiUsers);
+          return;
         } else {
-          console.log("API returned unsuccessful response, using mock users");
-          setUsers(mockUsers);
+          throw new Error("Invalid response format from API");
         }
       } catch (error) {
-        console.log(
-          "Error fetching users from API, using mock users:",
-          error.message
+        console.error("Error fetching real users:", error);
+
+        // Show error message
+        Alert.alert(
+          "Error Fetching Users",
+          "Unable to fetch real users from the server. Please check your connection and try again.",
+          [
+            {
+              text: "Use Demo Users",
+              onPress: () => {
+                // Fallback to demo users only if user confirms
+                useDemoUsers();
+              },
+            },
+            {
+              text: "Try Again",
+              onPress: () => fetchUsers(),
+            },
+          ],
+          { cancelable: false }
         );
-        setUsers(mockUsers);
       }
     } catch (error) {
       console.error("Unexpected error in fetchUsers:", error);
-      // Ensure we still have users even on error
-      setUsers([
-        { _id: "1", email: "john@example.com", displayName: "John Doe" },
-        { _id: "2", email: "jane@example.com", displayName: "Jane Smith" },
-      ]);
+      useDemoUsers();
     } finally {
       setLoadingUsers(false);
     }
+  };
+
+  // Helper function to use demo users
+  const useDemoUsers = () => {
+    console.log("Using demo users");
+    const mockUsers = [
+      { _id: "1", email: "john@example.com", displayName: "John Doe" },
+      { _id: "2", email: "jane@example.com", displayName: "Jane Smith" },
+      { _id: "3", email: "bob@example.com", displayName: "Bob Johnson" },
+      { _id: "4", email: "sarah@example.com", displayName: "Sarah Williams" },
+      { _id: "5", email: "mike@example.com", displayName: "Mike Brown" },
+    ];
+    setUsers(mockUsers);
   };
 
   // Toggle user selection
@@ -210,6 +237,38 @@ const AdminNotifications = ({ navigation }) => {
       return;
     }
 
+    // Check if using demo users
+    const usingDemoUsers =
+      !targetAllUsers &&
+      selectedUsers.some(
+        (id) => typeof id === "string" && /^[1-9]\d*$/.test(id)
+      );
+
+    if (usingDemoUsers) {
+      // Warn the user they're using demo users
+      Alert.alert(
+        "Warning: Demo Users Selected",
+        "You've selected demo users that don't exist in the real database. These notifications will not be sent to real users.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Continue with Demo Mode",
+            onPress: () => {
+              // Continue with sending in demo mode
+              proceedWithSendingNotification();
+            },
+          },
+        ],
+        { cancelable: true }
+      );
+    } else {
+      // Proceed immediately if using real users
+      proceedWithSendingNotification();
+    }
+  };
+
+  // Helper function to actually send the notification
+  const proceedWithSendingNotification = async () => {
     try {
       setSending(true);
 
@@ -266,25 +325,41 @@ const AdminNotifications = ({ navigation }) => {
     }
   };
 
-  const renderUserItem = ({ item }) => (
-    <TouchableOpacity
-      style={[
-        styles.userItem,
-        selectedUsers.includes(item._id) && styles.selectedUserItem,
-      ]}
-      onPress={() => toggleUserSelection(item._id)}
-    >
-      <View style={styles.userInfo}>
-        <Text style={styles.userName}>{item.displayName || "User"}</Text>
-        <Text style={styles.userEmail}>{item.email}</Text>
-      </View>
-      <Ionicons
-        name={selectedUsers.includes(item._id) ? "checkbox" : "square-outline"}
-        size={24}
-        color={selectedUsers.includes(item._id) ? "#3498db" : "#999"}
-      />
-    </TouchableOpacity>
-  );
+  const renderUserItem = ({ item }) => {
+    // Check if this is a demo user by looking at the ID format
+    const isDemoUser =
+      typeof item._id === "string" && /^[1-9]\d*$/.test(item._id);
+
+    return (
+      <TouchableOpacity
+        style={[
+          styles.userItem,
+          selectedUsers.includes(item._id) && styles.selectedUserItem,
+          isDemoUser && styles.demoUserItem,
+        ]}
+        onPress={() => toggleUserSelection(item._id)}
+      >
+        <View style={styles.userInfo}>
+          <View style={styles.userNameContainer}>
+            <Text style={styles.userName}>{item.displayName || "User"}</Text>
+            {isDemoUser && (
+              <View style={styles.demoUserBadge}>
+                <Text style={styles.demoUserBadgeText}>DEMO</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.userEmail}>{item.email}</Text>
+        </View>
+        <Ionicons
+          name={
+            selectedUsers.includes(item._id) ? "checkbox" : "square-outline"
+          }
+          size={24}
+          color={selectedUsers.includes(item._id) ? "#3498db" : "#999"}
+        />
+      </TouchableOpacity>
+    );
+  };
 
   const renderSentNotificationItem = ({ item }) => (
     <View style={styles.sentNotificationItem}>
@@ -407,13 +482,59 @@ const AdminNotifications = ({ navigation }) => {
           {!targetAllUsers && (
             <View style={styles.usersContainer}>
               <Text style={styles.label}>Select users</Text>
+
+              {/* User source indicator */}
+              <View style={styles.userSourceContainer}>
+                <Ionicons
+                  name={
+                    users.length > 0 &&
+                    !users[0]._id.toString().match(/^[1-9]\d*$/)
+                      ? "checkmark-circle"
+                      : "alert-circle"
+                  }
+                  size={18}
+                  color={
+                    users.length > 0 &&
+                    !users[0]._id.toString().match(/^[1-9]\d*$/)
+                      ? "#2ecc71"
+                      : "#e74c3c"
+                  }
+                />
+                <Text
+                  style={[
+                    styles.userSourceText,
+                    {
+                      color:
+                        users.length > 0 &&
+                        !users[0]._id.toString().match(/^[1-9]\d*$/)
+                          ? "#2ecc71"
+                          : "#e74c3c",
+                    },
+                  ]}
+                >
+                  {users.length > 0 &&
+                  !users[0]._id.toString().match(/^[1-9]\d*$/)
+                    ? "Using real users from the database"
+                    : "Using demo users (no API connection)"}
+                </Text>
+
+                <TouchableOpacity
+                  style={styles.refreshUsersButton}
+                  onPress={fetchUsers}
+                  disabled={loadingUsers}
+                >
+                  <Ionicons name="refresh" size={18} color="#3498db" />
+                  <Text style={styles.refreshUsersText}>Refresh</Text>
+                </TouchableOpacity>
+              </View>
+
               {loadingUsers ? (
                 <ActivityIndicator size="small" color="#3498db" />
               ) : (
                 <FlatList
                   data={users}
                   renderItem={renderUserItem}
-                  keyExtractor={(item) => item._id}
+                  keyExtractor={(item) => item._id.toString()}
                   style={styles.usersList}
                   scrollEnabled={false}
                   ListEmptyComponent={
@@ -640,6 +761,10 @@ const styles = StyleSheet.create({
   userInfo: {
     flex: 1,
   },
+  userNameContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   userName: {
     fontSize: 16,
     fontWeight: "500",
@@ -648,6 +773,21 @@ const styles = StyleSheet.create({
   userEmail: {
     fontSize: 14,
     color: "#666",
+  },
+  demoUserItem: {
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  demoUserBadge: {
+    backgroundColor: "#e74c3c",
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    marginLeft: 4,
+  },
+  demoUserBadgeText: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#fff",
   },
   sendButton: {
     backgroundColor: "#3498db",
@@ -733,6 +873,34 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     flex: 1,
     flexWrap: "wrap",
+  },
+  userSourceContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+    padding: 8,
+    backgroundColor: "#f9f9f9",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#eee",
+  },
+  userSourceText: {
+    fontSize: 14,
+    color: "#333",
+    marginLeft: 8,
+    flex: 1,
+  },
+  refreshUsersButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 5,
+    marginLeft: 10,
+  },
+  refreshUsersText: {
+    color: "#3498db",
+    marginLeft: 5,
+    fontSize: 14,
   },
 });
 

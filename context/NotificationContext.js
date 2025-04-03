@@ -495,11 +495,33 @@ export const NotificationProvider = ({ children }) => {
         !!adminToken
       );
 
+      // Check if we're using demo users (simple numeric IDs)
+      const usingDemoUsers =
+        !notificationData.sendToAll &&
+        notificationData.userIds &&
+        notificationData.userIds.length > 0 &&
+        notificationData.userIds.some(
+          (id) => typeof id === "string" && /^[1-9]\d*$/.test(id)
+        );
+
+      if (usingDemoUsers) {
+        console.log(
+          "Using demo users for notification targets - forcing demo mode"
+        );
+        return useMockSendNotification(
+          notificationData,
+          "You've selected demo users that don't exist in the database"
+        );
+      }
+
       if (!adminToken) {
         console.log(
           "No admin token available for sending admin notification - using mock mode"
         );
-        return useMockSendNotification(notificationData);
+        return useMockSendNotification(
+          notificationData,
+          "No admin authentication"
+        );
       }
 
       // Try to use the real API first
@@ -564,7 +586,10 @@ export const NotificationProvider = ({ children }) => {
       console.error("Error in sendAdminNotification:", error);
 
       // Fallback to mock notifications with clear indication this is mock data
-      const mockData = useMockSendNotification(notificationData);
+      const mockData = useMockSendNotification(
+        notificationData,
+        error.message || "Unknown error"
+      );
       return {
         ...mockData,
         message:
@@ -579,7 +604,7 @@ export const NotificationProvider = ({ children }) => {
   };
 
   // Helper function for mock notification sending
-  const useMockSendNotification = (notificationData) => {
+  const useMockSendNotification = (notificationData, reason = "Demo mode") => {
     const mockNotificationId = `mock_${Date.now()}`;
 
     // Create and add mock notification
@@ -598,8 +623,7 @@ export const NotificationProvider = ({ children }) => {
 
     return {
       success: true,
-      message:
-        "Notification sent in DEMO mode - no real users received this notification",
+      message: `Notification sent in DEMO mode - no real users received this notification (Reason: ${reason})`,
       notificationId: mockNotificationId,
       notification: newNotification,
       isRealUsers: false,
