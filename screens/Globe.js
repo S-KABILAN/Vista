@@ -84,6 +84,7 @@ const Globe = ({ navigation, route }) => {
   const [exploreRegion, setExploreRegion] = useState(null);
   const [savedLocations, setSavedLocations] = useState([]);
   const [is3DView, setIs3DView] = useState(false);
+  const [showDestinationCard, setShowDestinationCard] = useState(true);
 
   // Refs
   const mapRef = useRef(null);
@@ -178,6 +179,15 @@ const Globe = ({ navigation, route }) => {
       }).start();
     }
   }, [selectedDestination]);
+
+  useEffect(() => {
+    // Hide destination card when route panel is shown
+    if (showRoute || isRoutePlanningMode) {
+      setShowDestinationCard(false);
+    } else {
+      setShowDestinationCard(true);
+    }
+  }, [showRoute, isRoutePlanningMode]);
 
   // Google Places API Functions
   const fetchPlacePredictions = async (input) => {
@@ -390,10 +400,15 @@ const Globe = ({ navigation, route }) => {
   };
 
   const toggleSearchBar = () => {
+    // First collapse any predictions
+    setSearchPredictions([]);
+
+    // Then toggle the search bar
     Animated.spring(searchBarAnimation, {
       toValue: showSearch ? 0 : 1,
       useNativeDriver: false,
     }).start();
+
     setShowSearch(!showSearch);
     if (showSearch) setSearchQuery("");
   };
@@ -457,27 +472,24 @@ const Globe = ({ navigation, route }) => {
   };
 
   const handleMapPress = (event) => {
-    const { coordinate } = event.nativeEvent;
+    // Dismiss search predictions and destination cards when pressing on map
+    if (searchPredictions.length > 0) {
+      setSearchPredictions([]);
+    }
+
     if (isRoutePlanningMode) {
+      const { coordinate } = event.nativeEvent;
       if (routePlanningStep === 1) {
         setRouteOrigin(coordinate);
-        getAddressFromCoordinates(
-          coordinate.latitude,
-          coordinate.longitude
-        ).then(setOriginAddress);
         setRoutePlanningStep(2);
-        Alert.alert("Starting Point Set", "Now tap to set your destination");
-      } else if (routePlanningStep === 2) {
+      } else {
         setRouteDestination(coordinate);
-        getAddressFromCoordinates(
-          coordinate.latitude,
-          coordinate.longitude
-        ).then(setDestinationAddress);
+        createRouteWithDirections(routeOrigin, coordinate);
         setIsRoutePlanningMode(false);
         setShowRoute(true);
-        createRouteWithDirections(routeOrigin, coordinate, routeMode);
       }
     } else {
+      // When not in route planning mode, dismiss the selected destination
       setSelectedDestination(null);
     }
   };
@@ -516,20 +528,8 @@ const Globe = ({ navigation, route }) => {
   // Render Components
   const Header = () => (
     <View style={styles.header}>
-      <TouchableOpacity
-        style={styles.headerIcon}
-        onPress={() => navigation.goBack()}
-      >
-        <Ionicons name="chevron-back" size={28} color="#fff" />
-      </TouchableOpacity>
-      <LinearGradient
-        colors={["#4285F4", "#34A853"]}
-        style={styles.headerGradient}
-      >
-        <Text style={styles.headerTitle}>
-          {showRoute ? "Navigation" : "Explore"}
-        </Text>
-      </LinearGradient>
+      <Text style={styles.headerTitle}>Globe</Text>
+
       <TouchableOpacity style={styles.headerIcon} onPress={toggleSearchBar}>
         <Ionicons
           name={showSearch ? "close" : "search"}
@@ -659,9 +659,10 @@ const Globe = ({ navigation, route }) => {
       </>
     );
 
-  const RoutePanel = () =>
-    showRoute &&
-    routeDetails && (
+  const RoutePanel = () => {
+    if (!showRoute || !routeDetails) return null;
+
+    return (
       <Animated.View style={styles.routePanel}>
         <LinearGradient
           colors={["#4285F4", "#34A853"]}
@@ -669,6 +670,18 @@ const Globe = ({ navigation, route }) => {
         >
           <Text style={styles.routeDuration}>{travelTime}</Text>
           <Text style={styles.routeDistance}>{travelDistance}</Text>
+          <TouchableOpacity
+            style={styles.closeRouteButton}
+            onPress={() => {
+              setShowRoute(false);
+              setRouteCoordinates(null);
+              setRouteOrigin(null);
+              setRouteDestination(null);
+              setRouteDetails(null);
+            }}
+          >
+            <Entypo name="cross" size={20} color="#fff" />
+          </TouchableOpacity>
         </LinearGradient>
         <View style={styles.routeDetails}>
           <View style={styles.routeStep}>
@@ -722,226 +735,262 @@ const Globe = ({ navigation, route }) => {
               </TouchableOpacity>
             ))}
           </ScrollView>
-          <TouchableOpacity style={styles.startNavigation}>
+          <TouchableOpacity
+            style={styles.startNavigation}
+            onPress={() => {
+              Alert.alert("Navigation Started", "Your journey is beginning!");
+              // Add navigation logic here
+            }}
+          >
             <Text style={styles.startNavigationText}>Start Navigation</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
     );
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
-      <Header />
+    <SafeAreaView style={styles.safeAreaContainer}>
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" />
+        <Header />
 
-      <Animated.View
-        style={[styles.searchContainer, { opacity: searchBarAnimation }]}
-      >
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search places..."
-          onChangeText={debouncedSearch}
-          value={searchQuery}
-        />
-        {searchPredictions.length > 0 && (
-          <FlatList
-            data={searchPredictions}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                onPress={async () => {
-                  const details = await fetchPlaceDetails(item.place_id);
-                  if (details) {
-                    const dest = {
-                      id: item.place_id,
-                      name: details.name,
-                      coordinates: {
-                        latitude: details.geometry.location.lat,
-                        longitude: details.geometry.location.lng,
-                      },
-                      vicinity: details.formatted_address,
-                      image: details.photos?.[0]
-                        ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${details.photos[0].photo_reference}&key=${GOOGLE_MAPS_API_KEY}`
-                        : "https://via.placeholder.com/400",
-                      rating: details.rating || 0,
-                      place_id: item.place_id,
-                    };
-                    setFilteredDestinations([dest]);
-                    setSelectedDestination(dest);
-                    mapRef.current?.animateToRegion(
-                      {
-                        latitude: dest.coordinates.latitude,
-                        longitude: dest.coordinates.longitude,
-                        latitudeDelta: 0.1,
-                        longitudeDelta: 0.1,
-                      },
-                      1000
-                    );
-                    setShowSearch(false);
-                  }
-                }}
-              >
-                <Text style={styles.predictionText}>{item.description}</Text>
-              </TouchableOpacity>
-            )}
-            keyExtractor={(item) => item.place_id}
-            style={styles.predictionsList}
-          />
-        )}
-      </Animated.View>
-
-      <FilterBar />
-
-      <View style={styles.mapContainer}>
-        {loading ? (
-          <ActivityIndicator size="large" color="#4285F4" />
-        ) : (
-          <MapView
-            ref={mapRef}
-            style={styles.map}
-            provider={PROVIDER_GOOGLE}
-            initialRegion={region}
-            mapType={mapType}
-            showsUserLocation={true}
-            showsTraffic={showTraffic}
-            onRegionChangeComplete={setRegion}
-            onPress={handleMapPress}
+        {/* Search and Filter section with high zIndex */}
+        <View style={styles.topControlsContainer}>
+          <Animated.View
+            style={[
+              styles.searchContainer,
+              { opacity: searchBarAnimation },
+              showSearch && styles.activeSearchContainer,
+            ]}
           >
-            {userLocation && (
-              <Marker coordinate={userLocation} title="You are here">
-                <View style={styles.userLocationMarker}>
-                  <View style={styles.userLocationDot} />
-                </View>
-              </Marker>
-            )}
-            {filteredDestinations.map(renderMarker)}
-            {nearbyPlaces.map((place) => (
-              <Marker
-                key={place.id}
-                coordinate={place.coordinates}
-                title={place.name}
-              >
-                <View style={styles.placeMarker}>
-                  <FontAwesome5
-                    name={
-                      placeCategories.find((c) => c.id === place.type)?.icon ||
-                      "map-marker"
-                    }
-                    size={18}
-                    color="#FF5722"
-                  />
-                </View>
-              </Marker>
-            ))}
-            {renderRoute()}
-          </MapView>
-        )}
-        <View style={styles.mapControls}>
-          <TouchableOpacity
-            style={styles.controlButton}
-            onPress={goToUserLocation}
-          >
-            <MaterialIcons name="my-location" size={24} color="#fff" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.controlButton} onPress={toggle3DView}>
-            <MaterialIcons name="3d-rotation" size={24} color="#fff" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.controlButton}
-            onPress={() => setShowTraffic(!showTraffic)}
-          >
-            <MaterialIcons
-              name="traffic"
-              size={24}
-              color={showTraffic ? "#34A853" : "#fff"}
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search places..."
+              onChangeText={debouncedSearch}
+              value={searchQuery}
             />
-          </TouchableOpacity>
+            {searchPredictions.length > 0 && (
+              <FlatList
+                data={searchPredictions}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    onPress={async () => {
+                      const details = await fetchPlaceDetails(item.place_id);
+                      if (details) {
+                        const dest = {
+                          id: item.place_id,
+                          name: details.name,
+                          coordinates: {
+                            latitude: details.geometry.location.lat,
+                            longitude: details.geometry.location.lng,
+                          },
+                          vicinity: details.formatted_address,
+                          image: details.photos?.[0]
+                            ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${details.photos[0].photo_reference}&key=${GOOGLE_MAPS_API_KEY}`
+                            : "https://via.placeholder.com/400",
+                          rating: details.rating || 0,
+                          place_id: item.place_id,
+                        };
+                        setFilteredDestinations([dest]);
+                        setSelectedDestination(dest);
+                        mapRef.current?.animateToRegion(
+                          {
+                            latitude: dest.coordinates.latitude,
+                            longitude: dest.coordinates.longitude,
+                            latitudeDelta: 0.1,
+                            longitudeDelta: 0.1,
+                          },
+                          1000
+                        );
+                        setShowSearch(false);
+                        setSearchPredictions([]);
+                      }
+                    }}
+                  >
+                    <Text style={styles.predictionText}>
+                      {item.description}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                keyExtractor={(item) => item.place_id}
+                style={styles.predictionsList}
+              />
+            )}
+          </Animated.View>
+
+          <FilterBar />
         </View>
-      </View>
 
-      <AnimatedFlatList
-        ref={scrollViewRef}
-        data={filteredDestinations}
-        renderItem={renderDestinationCard}
-        keyExtractor={(item) => item.id}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        snapToInterval={CARD_WIDTH + 15}
-        contentContainerStyle={styles.carousel}
-      />
+        {/* Map section */}
+        <View style={styles.mapContainer}>
+          {loading ? (
+            <ActivityIndicator size="large" color="#4285F4" />
+          ) : (
+            <MapView
+              ref={mapRef}
+              style={styles.map}
+              provider={PROVIDER_GOOGLE}
+              initialRegion={region}
+              mapType={mapType}
+              showsUserLocation={true}
+              showsTraffic={showTraffic}
+              onRegionChangeComplete={setRegion}
+              onPress={handleMapPress}
+            >
+              {userLocation && (
+                <Marker coordinate={userLocation} title="You are here">
+                  <View style={styles.userLocationMarker}>
+                    <View style={styles.userLocationDot} />
+                  </View>
+                </Marker>
+              )}
+              {filteredDestinations.map(renderMarker)}
+              {nearbyPlaces.map((place) => (
+                <Marker
+                  key={place.id}
+                  coordinate={place.coordinates}
+                  title={place.name}
+                >
+                  <View style={styles.placeMarker}>
+                    <FontAwesome5
+                      name={
+                        placeCategories.find((c) => c.id === place.type)
+                          ?.icon || "map-marker"
+                      }
+                      size={18}
+                      color="#FF5722"
+                    />
+                  </View>
+                </Marker>
+              ))}
+              {renderRoute()}
+            </MapView>
+          )}
+          <View style={styles.mapControls}>
+            <TouchableOpacity
+              style={styles.controlButton}
+              onPress={goToUserLocation}
+            >
+              <MaterialIcons name="my-location" size={24} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.controlButton}
+              onPress={toggle3DView}
+            >
+              <MaterialIcons name="3d-rotation" size={24} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.controlButton}
+              onPress={() => setShowTraffic(!showTraffic)}
+            >
+              <MaterialIcons
+                name="traffic"
+                size={24}
+                color={showTraffic ? "#34A853" : "#fff"}
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
 
-      <Animated.View
-        style={[
-          styles.destinationCard,
-          { transform: [{ translateY: cardAnimation }] },
-        ]}
-      >
-        {selectedDestination && (
-          <>
-            <Text style={styles.destinationCardTitle}>
-              {selectedDestination.name}
-            </Text>
-            <Text style={styles.destinationCardSubtitle}>
-              {selectedDestination.vicinity}
-            </Text>
-            <View style={styles.destinationCardActions}>
-              <TouchableOpacity
-                onPress={() => toggleFavorite(selectedDestination)}
+        {/* Bottom section for cards and controls - only shown when not in route mode */}
+        {!isRoutePlanningMode && !showRoute && (
+          <View style={styles.bottomContainer}>
+            <AnimatedFlatList
+              ref={scrollViewRef}
+              data={filteredDestinations}
+              renderItem={renderDestinationCard}
+              keyExtractor={(item) => item.id}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              snapToInterval={CARD_WIDTH + 15}
+              contentContainerStyle={styles.carousel}
+            />
+
+            {selectedDestination && showDestinationCard && (
+              <Animated.View
+                style={[
+                  styles.destinationCard,
+                  { transform: [{ translateY: cardAnimation }] },
+                ]}
               >
-                <Ionicons
-                  name={
-                    savedLocations.some(
-                      (loc) => loc.id === selectedDestination.id
-                    )
-                      ? "heart"
-                      : "heart-outline"
-                  }
-                  size={24}
-                  color="#4285F4"
-                />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={planTrip}>
-                <FontAwesome5 name="robot" size={24} color="#4285F4" />
-              </TouchableOpacity>
-            </View>
-          </>
+                <Text style={styles.destinationCardTitle}>
+                  {selectedDestination.name}
+                </Text>
+                <Text style={styles.destinationCardSubtitle}>
+                  {selectedDestination.vicinity}
+                </Text>
+                <View style={styles.destinationCardActions}>
+                  <TouchableOpacity
+                    onPress={() => toggleFavorite(selectedDestination)}
+                  >
+                    <Ionicons
+                      name={
+                        savedLocations.some(
+                          (loc) => loc.id === selectedDestination.id
+                        )
+                          ? "heart"
+                          : "heart-outline"
+                      }
+                      size={24}
+                      color="#4285F4"
+                    />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={planTrip}>
+                    <FontAwesome5 name="robot" size={24} color="#4285F4" />
+                  </TouchableOpacity>
+                </View>
+              </Animated.View>
+            )}
+          </View>
         )}
-      </Animated.View>
 
-      {!isRoutePlanningMode && !showRoute && (
-        <TouchableOpacity
-          style={styles.routePlanningButton}
-          onPress={startRoutePlanning}
-        >
-          <LinearGradient
-            colors={["#4285F4", "#34A853"]}
-            style={styles.routePlanningGradient}
+        {/* Route planning button - only when not in route planning mode and not showing route */}
+        {!isRoutePlanningMode && !showRoute && (
+          <TouchableOpacity
+            style={styles.routePlanningButton}
+            onPress={startRoutePlanning}
           >
-            <FontAwesome5 name="route" size={18} color="#fff" />
-            <Text style={styles.routePlanningText}>Plan Route</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      )}
-
-      {isRoutePlanningMode && (
-        <View style={styles.routePlanningIndicator}>
-          <Text style={styles.routePlanningIndicatorText}>
-            {routePlanningStep === 1 ? "Set starting point" : "Set destination"}
-          </Text>
-          <TouchableOpacity onPress={() => setIsRoutePlanningMode(false)}>
-            <Entypo name="cross" size={20} color="#fff" />
+            <LinearGradient
+              colors={["#4285F4", "#34A853"]}
+              style={styles.routePlanningGradient}
+            >
+              <FontAwesome5 name="route" size={18} color="#fff" />
+              <Text style={styles.routePlanningText}>Plan Route</Text>
+            </LinearGradient>
           </TouchableOpacity>
-        </View>
-      )}
+        )}
 
-      <RoutePanel />
+        {/* Route planning indicator - with higher z-index */}
+        {isRoutePlanningMode && (
+          <View style={styles.routePlanningIndicator}>
+            <Text style={styles.routePlanningIndicatorText}>
+              {routePlanningStep === 1
+                ? "Set starting point"
+                : "Set destination"}
+            </Text>
+            <TouchableOpacity onPress={() => setIsRoutePlanningMode(false)}>
+              <Entypo name="cross" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Route panel - when route is shown */}
+        <RoutePanel />
+      </View>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  safeAreaContainer: {
+    flex: 1,
+    backgroundColor: "#f5f5f5",
+  },
   container: {
     flex: 1,
     backgroundColor: "#f5f5f5",
+    position: "relative",
   },
   header: {
     paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
@@ -949,6 +998,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     padding: 15,
+    zIndex: 10,
   },
   headerGradient: {
     flex: 1,
@@ -967,10 +1017,17 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.2)",
     borderRadius: 20,
   },
+  topControlsContainer: {
+    zIndex: 20,
+  },
   searchContainer: {
     padding: 15,
     backgroundColor: "#fff",
     elevation: 2,
+    zIndex: 9,
+  },
+  activeSearchContainer: {
+    zIndex: 20,
   },
   searchInput: {
     backgroundColor: "#f0f0f0",
@@ -986,6 +1043,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 10,
     maxHeight: 200,
+    zIndex: 20,
+    elevation: 5,
   },
   predictionText: {
     padding: 10,
@@ -996,6 +1055,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: "#fff",
     elevation: 2,
+    zIndex: 8,
   },
   filterButton: {
     marginHorizontal: 5,
@@ -1021,6 +1081,7 @@ const styles = StyleSheet.create({
     margin: 15,
     borderRadius: 15,
     overflow: "hidden",
+    zIndex: 1,
   },
   map: {
     ...StyleSheet.absoluteFillObject,
@@ -1030,12 +1091,25 @@ const styles = StyleSheet.create({
     right: 10,
     top: 10,
     flexDirection: "column",
+    zIndex: 5,
   },
   controlButton: {
     backgroundColor: "#4285F4",
     padding: 10,
     borderRadius: 25,
     marginVertical: 5,
+  },
+  bottomContainer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 5,
+    paddingBottom: 80, // Add padding at bottom for route planning button
+  },
+  carousel: {
+    paddingLeft: 15,
+    paddingBottom: 20,
   },
   customMarker: {
     backgroundColor: "#fff",
@@ -1071,10 +1145,6 @@ const styles = StyleSheet.create({
     width: 12,
     borderRadius: 6,
     backgroundColor: "#4285F4",
-  },
-  carousel: {
-    paddingLeft: 15,
-    paddingBottom: 20,
   },
   card: {
     width: CARD_WIDTH,
@@ -1132,14 +1202,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   destinationCard: {
-    position: "absolute",
-    left: 20,
-    right: 20,
-    bottom: 20,
     backgroundColor: "#fff",
     borderRadius: 15,
     padding: 20,
     elevation: 5,
+    margin: 15,
+    marginTop: 0,
   },
   destinationCardTitle: {
     fontSize: 18,
@@ -1153,14 +1221,16 @@ const styles = StyleSheet.create({
   destinationCardActions: {
     flexDirection: "row",
     justifyContent: "space-around",
+    marginTop: 10,
   },
   routePlanningButton: {
     position: "absolute",
-    bottom: 30,
+    bottom: 20,
     left: 20,
     right: 20,
     borderRadius: 12,
     overflow: "hidden",
+    zIndex: 10,
   },
   routePlanningGradient: {
     flexDirection: "row",
@@ -1175,7 +1245,7 @@ const styles = StyleSheet.create({
   },
   routePlanningIndicator: {
     position: "absolute",
-    top: 20,
+    top: 80,
     left: 20,
     right: 20,
     backgroundColor: "#4285F4",
@@ -1184,6 +1254,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    zIndex: 15,
+    elevation: 5,
   },
   routePlanningIndicatorText: {
     color: "#fff",
@@ -1197,11 +1269,18 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     overflow: "hidden",
     elevation: 5,
+    zIndex: 10,
   },
   routeHeader: {
     padding: 15,
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
+  },
+  closeRouteButton: {
+    backgroundColor: "rgba(0,0,0,0.2)",
+    borderRadius: 20,
+    padding: 5,
   },
   routeDuration: {
     color: "#fff",
@@ -1211,6 +1290,27 @@ const styles = StyleSheet.create({
   routeDistance: {
     color: "#fff",
     fontSize: 16,
+  },
+  originMarker: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 6,
+    borderWidth: 2,
+    borderColor: "#4CAF50",
+  },
+  destinationMarker: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 6,
+    borderWidth: 2,
+    borderColor: "#FF5722",
+  },
+  placeMarker: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 6,
+    borderWidth: 2,
+    borderColor: "#FF5722",
   },
   routeDetails: {
     padding: 15,
@@ -1258,27 +1358,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "bold",
-  },
-  originMarker: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 6,
-    borderWidth: 2,
-    borderColor: "#4CAF50",
-  },
-  destinationMarker: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 6,
-    borderWidth: 2,
-    borderColor: "#FF5722",
-  },
-  placeMarker: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 6,
-    borderWidth: 2,
-    borderColor: "#FF5722",
   },
 });
 
