@@ -2,7 +2,7 @@
 import { Platform } from "react-native";
 
 // Get local IP based on platform
-export const SERVER_IP = "192.168.15.149"; // Use your actual IP address here
+export const SERVER_IP = "192.168.66.149"; // Use your actual IP address here
 export const SERVER_PORT = 5000;
 
 // For development with Expo - choose correct localhost for the platform
@@ -15,7 +15,7 @@ export const BACKEND_URL =
 export const SOCKET_URL = BACKEND_URL;
 
 // This should point to your actual backend URL
-export const BACKEND_URL_ACTUAL = "http://192.168.15.149:5000";
+export const BACKEND_URL_ACTUAL = "http://192.168.66.149:5000";
 
 // App Configuration
 
@@ -24,7 +24,7 @@ export const BACKEND_URL_ACTUAL = "http://192.168.15.149:5000";
 export const BACKEND_URL_APP =
   process.env.NODE_ENV === "production"
     ? "https://vista-travel-backend.example.com"
-    : "http://192.168.15.149:5000";
+    : "http://192.168.66.149:5000";
 
 // Other configuration variables
 export const DEFAULT_CURRENCY = "USD";
