@@ -44,6 +44,15 @@ import TravelTips from "../screens/TravelTips";
 // Import custom bottom navigation
 import BottomNavigation from "../components/BottomNavigation";
 
+// Import the TripCollaboration screen
+import TripCollaboration from "../screens/TripCollaboration";
+
+// Import the SharedTravelPlan screen
+import SharedTravelPlan from "../screens/SharedTravelPlan";
+
+// Import the InviteCollaborators screen
+import InviteCollaborators from "../screens/InviteCollaborators";
+
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
@@ -176,6 +185,21 @@ const AppNavigation = () => {
         <Stack.Screen
           name="TravelTips"
           component={TravelTips}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="TripCollaboration"
+          component={TripCollaboration}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="SharedTravelPlan"
+          component={SharedTravelPlan}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="InviteCollaborators"
+          component={InviteCollaborators}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>

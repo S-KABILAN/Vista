@@ -5,11 +5,8 @@ import { Platform } from "react-native";
 export const SERVER_IP = "192.168.66.149"; // Use your actual IP address here
 export const SERVER_PORT = 5000;
 
-// For development with Expo - choose correct localhost for the platform
-export const BACKEND_URL =
-  Platform.OS === "web"
-    ? `http://localhost:${SERVER_PORT}`
-    : `http://${SERVER_IP}:${SERVER_PORT}`;
+// Define the backend URL - used throughout the app
+export const BACKEND_URL = `http://${SERVER_IP}:${SERVER_PORT}`;
 
 // Socket.IO connection URL - use the same as BACKEND_URL
 export const SOCKET_URL = BACKEND_URL;
@@ -43,4 +40,5 @@ export const FEATURES = {
   ENABLE_OFFLINE_MODE: true,
   ENABLE_SOCIAL_SHARING: true,
   ENABLE_AI_FEATURES: true,
+  ENABLE_COLLABORATION: true,
 };

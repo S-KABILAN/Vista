@@ -90,6 +90,51 @@ const travelPlanSchema = new mongoose.Schema(
         },
       ],
     },
+    // New fields for collaboration and sharing
+    collaborators: [
+      {
+        userId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        accessLevel: {
+          type: String,
+          enum: ["view", "edit"],
+          default: "view",
+        },
+        dateAdded: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+    isShared: {
+      type: Boolean,
+      default: false,
+    },
+    shareLink: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+    shareExpiration: {
+      type: Date,
+    },
+    // Track activity in the plan
+    activityLog: [
+      {
+        userId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        action: String,
+        timestamp: {
+          type: Date,
+          default: Date.now,
+        },
+        details: Object,
+      },
+    ],
   },
   {
     timestamps: true,
@@ -100,6 +145,8 @@ const travelPlanSchema = new mongoose.Schema(
 travelPlanSchema.index({ userId: 1 });
 travelPlanSchema.index({ destination: 1 });
 travelPlanSchema.index({ createdAt: -1 });
+travelPlanSchema.index({ "collaborators.userId": 1 });
+travelPlanSchema.index({ shareLink: 1 });
 
 const TravelPlan = mongoose.model("TravelPlan", travelPlanSchema);
 

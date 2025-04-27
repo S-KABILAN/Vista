@@ -15,6 +15,7 @@ const travelPlanRoutes = require("./routes/travelPlans");
 const userPreferencesRoutes = require("./routes/userPreferences");
 const adminRoutes = require("./routes/admin");
 const notificationRoutes = require("./routes/notifications");
+const collaborationRoutes = require("./routes/collaborationRoutes");
 const { configurePassport } = require("./config/passport");
 const JwtStrategy = require("passport-jwt").Strategy;
 const ExtractJwt = require("passport-jwt").ExtractJwt;
@@ -257,6 +258,7 @@ app.use("/api/expenses", expenseRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/ai-recommendations", aiRecommendationsRoutes);
+app.use("/api/collaboration", collaborationRoutes);
 
 // ====== AI FEATURE ROUTES ======
 
@@ -1310,11 +1312,7 @@ app.get("/", (req, res) => {
 
 // Health check endpoint
 app.get("/ping", (req, res) => {
-  res.json({
-    success: true,
-    message: "Server is running!",
-    timestamp: new Date().toISOString(),
-  });
+  res.status(200).json({ message: "Server is running", status: "ok" });
 });
 
 // Start the server with Socket.IO

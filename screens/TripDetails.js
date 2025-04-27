@@ -14,6 +14,7 @@ import {
 import { Ionicons, MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
 import * as TravelPlanService from "../services/TravelPlanService";
 import { LinearGradient } from "expo-linear-gradient";
+import { navigateToInviteCollaborators } from "../utils/NavigationHelpers";
 
 const { width } = Dimensions.get("window");
 
@@ -298,6 +299,35 @@ const TripDetails = ({ route, navigation }) => {
               <Text style={styles.actionButtonText}>Similar Trips</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Collaboration Button */}
+          <TouchableOpacity
+            style={[styles.collaborationButton, styles.primaryButton]}
+            onPress={() =>
+              navigation.navigate("TripCollaboration", {
+                planId: trip._id,
+                planName: trip.destination,
+              })
+            }
+          >
+            <Ionicons name="people" size={20} color="#fff" />
+            <Text style={styles.actionButtonText}>Collaborate & Share</Text>
+          </TouchableOpacity>
+
+          {/* Invite Collaborators Button */}
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() =>
+              navigateToInviteCollaborators(
+                navigation,
+                trip._id,
+                trip.destination
+              )
+            }
+          >
+            <Ionicons name="people" size={22} color="#3498db" />
+            <Text style={styles.actionButtonText}>Invite Collaborators</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -565,6 +595,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     marginLeft: 8,
+  },
+  collaborationButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginTop: 15,
+    backgroundColor: "#20bf6b",
   },
 });
 
