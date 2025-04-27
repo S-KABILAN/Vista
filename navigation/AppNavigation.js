@@ -28,6 +28,8 @@ import AllDestinations from "../screens/AllDestinations";
 import UserPreferencesOnboarding from "../screens/UserPreferencesOnboarding";
 // Import Notifications Test Screen
 import NotificationsTest from "../screens/NotificationsTest";
+// Import MapView Screen
+import MapViewScreen from "../screens/MapView";
 
 // Import our new AI feature screens
 import PersonalizedRecommendations from "../screens/PersonalizedRecommendations";
@@ -108,6 +110,7 @@ const AppNavigation = () => {
         <Stack.Screen name="AIBudgetManager" component={AIBudgetManager} />
         <Stack.Screen name="ChangeLocation" component={ChangeLocation} />
         <Stack.Screen name="PlaceGo" component={PlaceGo} />
+        <Stack.Screen name="MapView" component={MapViewScreen} />
         <Stack.Screen name="SavedTravelPlans" component={SavedTravelPlans} />
         <Stack.Screen name="TravelPlanDetail" component={TravelPlanDetail} />
         <Stack.Screen name="TravelPreferences" component={TravelPreferences} />

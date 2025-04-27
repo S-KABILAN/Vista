@@ -525,6 +525,43 @@ const Globe = ({ navigation, route }) => {
     setIs3DView(!is3DView);
   };
 
+  // Get the appropriate icon for each type of destination
+  const getDestinationIcon = (destination) => {
+    if (!destination || !destination.type) return "map-marker-alt";
+
+    switch (destination.type.toLowerCase()) {
+      case "restaurant":
+      case "food":
+        return "utensils";
+      case "hotel":
+      case "lodging":
+        return "hotel";
+      case "attraction":
+      case "tourist_attraction":
+      case "museum":
+        return "landmark";
+      case "shopping":
+      case "store":
+      case "shopping_mall":
+        return "shopping-bag";
+      case "beach":
+        return "umbrella-beach";
+      case "mountain":
+      case "natural_feature":
+        return "mountain";
+      case "bar":
+      case "night_club":
+        return "glass-martini-alt";
+      case "airport":
+      case "transit_station":
+        return "plane";
+      case "park":
+        return "tree";
+      default:
+        return "map-marker-alt";
+    }
+  };
+
   // Render Components
   const Header = () => (
     <View style={styles.header}>
@@ -825,48 +862,174 @@ const Globe = ({ navigation, route }) => {
         {/* Map section */}
         <View style={styles.mapContainer}>
           {loading ? (
-            <ActivityIndicator size="large" color="#4285F4" />
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#4285F4" />
+              <Text style={styles.loadingText}>Loading map...</Text>
+            </View>
           ) : (
-            <MapView
-              ref={mapRef}
-              style={styles.map}
-              provider={PROVIDER_GOOGLE}
-              initialRegion={region}
-              mapType={mapType}
-              showsUserLocation={true}
-              showsTraffic={showTraffic}
-              onRegionChangeComplete={setRegion}
-              onPress={handleMapPress}
-            >
-              {userLocation && (
-                <Marker coordinate={userLocation} title="You are here">
-                  <View style={styles.userLocationMarker}>
-                    <View style={styles.userLocationDot} />
-                  </View>
-                </Marker>
-              )}
-              {filteredDestinations.map(renderMarker)}
-              {nearbyPlaces.map((place) => (
-                <Marker
-                  key={place.id}
-                  coordinate={place.coordinates}
-                  title={place.name}
+            <>
+              <MapView
+                ref={mapRef}
+                style={styles.map}
+                provider={PROVIDER_GOOGLE}
+                initialRegion={region}
+                mapType={mapType}
+                showsUserLocation={true}
+                showsTraffic={showTraffic}
+                showsCompass={true}
+                showsBuildings={true}
+                showsIndoorLevelPicker={true}
+                onRegionChangeComplete={setRegion}
+                onPress={handleMapPress}
+              >
+                {userLocation && (
+                  <Marker coordinate={userLocation} title="You are here">
+                    <View style={styles.userLocationMarker}>
+                      <View style={styles.userLocationPulse} />
+                      <View style={styles.userLocationDot} />
+                    </View>
+                  </Marker>
+                )}
+
+                {filteredDestinations.map((destination) => (
+                  <Marker
+                    key={destination.id}
+                    coordinate={destination.coordinates}
+                    title={destination.name}
+                    description={destination.vicinity}
+                    onPress={() => handleMarkerPress(destination)}
+                  >
+                    <View
+                      style={[
+                        styles.destinationMarker,
+                        selectedDestination?.id === destination.id &&
+                          styles.selectedDestinationMarker,
+                      ]}
+                    >
+                      <FontAwesome5
+                        name={getDestinationIcon(destination)}
+                        size={20}
+                        color={
+                          selectedDestination?.id === destination.id
+                            ? "#FFFFFF"
+                            : "#FF5722"
+                        }
+                      />
+                    </View>
+                    {selectedDestination?.id === destination.id && (
+                      <Callout tooltip>
+                        <View style={styles.calloutContainer}>
+                          <Text style={styles.calloutTitle}>
+                            {destination.name}
+                          </Text>
+                          <Text style={styles.calloutDescription}>
+                            {destination.vicinity}
+                          </Text>
+                          <View style={styles.calloutActions}>
+                            <TouchableOpacity
+                              style={styles.calloutAction}
+                              onPress={() =>
+                                navigation.navigate("MapView", {
+                                  location: {
+                                    latitude: destination.coordinates.latitude,
+                                    longitude:
+                                      destination.coordinates.longitude,
+                                    name: destination.name,
+                                    address: destination.vicinity,
+                                  },
+                                })
+                              }
+                            >
+                              <MaterialIcons
+                                name="fullscreen"
+                                size={16}
+                                color="#4285F4"
+                              />
+                              <Text style={styles.calloutActionText}>
+                                Full View
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      </Callout>
+                    )}
+                  </Marker>
+                ))}
+
+                {nearbyPlaces.map((place) => (
+                  <Marker
+                    key={place.id}
+                    coordinate={place.coordinates}
+                    title={place.name}
+                    description={place.vicinity || ""}
+                  >
+                    <View style={styles.placeMarker}>
+                      <FontAwesome5
+                        name={
+                          placeCategories.find((c) => c.id === place.type)
+                            ?.icon || "map-marker"
+                        }
+                        size={18}
+                        color="#FF5722"
+                      />
+                      {place.rating && (
+                        <View style={styles.markerRatingContainer}>
+                          <Text style={styles.markerRating}>
+                            {place.rating.toFixed(1)}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </Marker>
+                ))}
+
+                {renderRoute()}
+              </MapView>
+
+              <View style={styles.mapTypeControls}>
+                <TouchableOpacity
+                  style={[
+                    styles.mapTypeButton,
+                    mapType === "standard" && styles.activeMapTypeButton,
+                  ]}
+                  onPress={() => setMapType("standard")}
                 >
-                  <View style={styles.placeMarker}>
-                    <FontAwesome5
-                      name={
-                        placeCategories.find((c) => c.id === place.type)
-                          ?.icon || "map-marker"
-                      }
-                      size={18}
-                      color="#FF5722"
-                    />
-                  </View>
-                </Marker>
-              ))}
-              {renderRoute()}
-            </MapView>
+                  <MaterialIcons
+                    name="map"
+                    size={18}
+                    color={mapType === "standard" ? "#FFFFFF" : "#333333"}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.mapTypeButton,
+                    mapType === "satellite" && styles.activeMapTypeButton,
+                  ]}
+                  onPress={() => setMapType("satellite")}
+                >
+                  <MaterialIcons
+                    name="satellite"
+                    size={18}
+                    color={mapType === "satellite" ? "#FFFFFF" : "#333333"}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.mapTypeButton,
+                    mapType === "hybrid" && styles.activeMapTypeButton,
+                  ]}
+                  onPress={() => setMapType("hybrid")}
+                >
+                  <MaterialIcons
+                    name="terrain"
+                    size={18}
+                    color={mapType === "hybrid" ? "#FFFFFF" : "#333333"}
+                  />
+                </TouchableOpacity>
+              </View>
+            </>
           )}
+
           <View style={styles.mapControls}>
             <TouchableOpacity
               style={styles.controlButton}
@@ -881,13 +1044,16 @@ const Globe = ({ navigation, route }) => {
               <MaterialIcons name="3d-rotation" size={24} color="#fff" />
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.controlButton}
+              style={[
+                styles.controlButton,
+                showTraffic && styles.activeControlButton,
+              ]}
               onPress={() => setShowTraffic(!showTraffic)}
             >
               <MaterialIcons
                 name="traffic"
                 size={24}
-                color={showTraffic ? "#34A853" : "#fff"}
+                color={showTraffic ? "#FFFFFF" : "#fff"}
               />
             </TouchableOpacity>
           </View>
@@ -1140,6 +1306,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  userLocationPulse: {
+    height: 12,
+    width: 12,
+    borderRadius: 6,
+    backgroundColor: "rgba(66, 133, 244, 0.5)",
+    position: "absolute",
+    top: 6,
+    left: 6,
+  },
   userLocationDot: {
     height: 12,
     width: 12,
@@ -1358,6 +1533,66 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "bold",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  loadingText: {
+    color: "#666",
+    marginTop: 10,
+  },
+  mapTypeControls: {
+    position: "absolute",
+    right: 10,
+    top: 10,
+    flexDirection: "row",
+    zIndex: 5,
+  },
+  mapTypeButton: {
+    padding: 10,
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    marginLeft: 5,
+  },
+  activeMapTypeButton: {
+    backgroundColor: "#4285F4",
+  },
+  selectedDestinationMarker: {
+    backgroundColor: "#4285F4",
+    borderRadius: 20,
+    padding: 6,
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
+  calloutDescription: {
+    color: "#666",
+    marginBottom: 10,
+  },
+  calloutActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  calloutAction: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  calloutActionText: {
+    marginLeft: 5,
+  },
+  markerRatingContainer: {
+    position: "absolute",
+    top: 5,
+    right: 5,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    padding: 2,
+    borderRadius: 10,
+  },
+  markerRating: {
+    color: "#fff",
+    fontSize: 12,
   },
 });
 
